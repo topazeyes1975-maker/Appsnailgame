@@ -25,7 +25,7 @@
         Objective: Rescue Babies & Survive!<br>
         Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
         Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
-        Time Left: <span id="timer">45</span>s
+        Time Left: <span id="timer">45</span>
     </div>
     
     <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
@@ -131,7 +131,7 @@
             if (!babyModelTemplate) return;
             
             const babyModel1 = babyModelTemplate.clone();
-            babyModel1.scale.set(0.2, 0.2, 0.2);
+            babyModel1.scale.set(0.5, 0.5, 0.5);
             babyModel1.position.set(-8, 0.3, -12);
             scene.add(babyModel1);
 
@@ -193,7 +193,7 @@
         loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             snailGroup.remove(fallbackMain); // Remove fallback box once model loads successfully
             const character = gltf.scene;
-            character.scale.set(0.4, 0.4, 0.4);
+            character.scale.set(0.8, 0.8, 0.8);
             character.position.y = 1; 
             snailGroup.add(character);
         }, undefined, function (error) {
