@@ -118,7 +118,7 @@
         let pendingRooms = [];
 
         // Load 3D Baby Snails
-        loader.load('file:///storage/emulated/0/Download/3D/Meshy_AI_Galactic_Snail_1785475444_image-to-3d-texture.glb', function (gltf) {
+        loader.load('', function (gltf) {
             babyModelTemplate = gltf.scene;
             initRoomsWithModels();
         }, undefined, function (error) {
@@ -190,7 +190,7 @@
         snailGroup.add(fallbackMain);
 
         // Load Main Astral Knight Snail Model
-        loader.load('file:///storage/emulated/0/Download/Meshy_AI_Astral_Knight_of_the_Cosmic_Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
+        loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             snailGroup.remove(fallbackMain); // Remove fallback box once model loads successfully
             const character = gltf.scene;
             character.scale.set(0.2, 0.2, 0.2);
