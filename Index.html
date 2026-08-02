@@ -59,20 +59,22 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // Texture Loader
+        // Texture Loader with CORS enabling
         const textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin('anonymous');
 
-        // Load Floor Image Texture (Replace 'floor_texture.jpg' with your image name)
+        // Load Floor Image Texture
         const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
             tex.repeat.set(8, 8);
+            tex.needsUpdate = true;
         });
 
         const floorGeo = new THREE.PlaneGeometry(100, 100);
         const floorMat = new THREE.MeshStandardMaterial({ 
             map: floorTexture,
-            color: 0x0c0c16, // Fallback background color if image is missing
+            color: 0xffffff, // White neutral base so texture colors render accurately
             roughness: 0.8, 
             metalness: 0.2 
         });
@@ -92,16 +94,17 @@
         homeBase.position.set(0, 0.02, 10);
         scene.add(homeBase);
 
-        // Load Wall Image Texture (Replace 'wall_texture.jpg' with your image name)
+        // Load Wall Image Texture
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
             tex.repeat.set(2, 1);
+            tex.needsUpdate = true;
         });
 
         const obstacleMat = new THREE.MeshStandardMaterial({ 
             map: wallTexture,
-            color: 0x1f1f3a, // Fallback wall color if image is missing
+            color: 0xffffff, // White neutral base so texture colors render accurately
             roughness: 0.4, 
             metalness: 0.5 
         });
@@ -407,10 +410,24 @@
                 }
             });
 
-            // Bullets Collision & Reflective Bounce Mechanics
+            // Bullets Collision, Reflective Bounce & Wall Bouncing Mechanics
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
+
+                let bulletBox = new THREE.Box3().setFromObject(b.mesh);
+                let hitWall = false;
+
+                // Check wall bounce collisions
+                for (let wallBox of wallBoundingBoxes) {
+                    if (bulletBox.intersectsBox(wallBox)) {
+                        b.dir.negate(); // Reverse bullet direction off walls
+                        hitWall = true;
+                        break;
+                    }
+                }
+
+                if (hitWall) continue;
 
                 let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
 
@@ -454,7 +471,7 @@
                 baby.position.y = 0.3;
             }
 
-              // Home Base Drop-off Check
+            // Home Base Drop-off Check
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
@@ -484,4 +501,3 @@
     </script>
 </body>
 </html>
-          
