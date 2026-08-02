@@ -44,7 +44,7 @@
         scene.background = new THREE.Color(0x050508);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 12, 12);
+        camera.position.set(0, 16, 14);
         camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -52,16 +52,30 @@
         document.body.appendChild(renderer.domElement);
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0x333355, 1.2);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
         
-        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.2);
+        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // Floor & Grid
+        // Texture Loader
+        const textureLoader = new THREE.TextureLoader();
+
+        // Load Floor Image Texture (Replace 'floor_texture.jpg' with your image name)
+        const floorTexture = textureLoader.load('floor_texture.jpg', function(tex) {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(8, 8);
+        });
+
         const floorGeo = new THREE.PlaneGeometry(100, 100);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0c0c16, roughness: 0.8, metalness: 0.2 });
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            map: floorTexture,
+            color: 0x0c0c16, // Fallback background color if image is missing
+            roughness: 0.8, 
+            metalness: 0.2 
+        });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = -0.05;
@@ -75,35 +89,70 @@
         const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
         const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
         const homeBase = new THREE.Mesh(baseGeo, baseMat);
-        homeBase.position.set(0, 0.02, 4);
+        homeBase.position.set(0, 0.02, 10);
         scene.add(homeBase);
 
-        // Maze Obstacles
-        const obstacleMat = new THREE.MeshStandardMaterial({ color: 0x333366, roughness: 0.5, metalness: 0.5 });
+        // Load Wall Image Texture (Replace 'wall_texture.jpg' with your image name)
+        const wallTexture = textureLoader.load('wall_texture.jpg', function(tex) {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(2, 1);
+        });
+
+        const obstacleMat = new THREE.MeshStandardMaterial({ 
+            map: wallTexture,
+            color: 0x1f1f3a, // Fallback wall color if image is missing
+            roughness: 0.4, 
+            metalness: 0.5 
+        });
+
+        const wallBoundingBoxes = [];
+
         function createWall(x, z, width, depth) {
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(width, 2, depth), obstacleMat);
-            wall.position.set(x, 1, z);
+            const wallGeo = new THREE.BoxGeometry(width, 2.5, depth);
+            const wall = new THREE.Mesh(wallGeo, obstacleMat);
+            wall.position.set(x, 1.25, z);
             scene.add(wall);
+
+            // Neon cyan glowing frame around wall tops
+            const edges = new THREE.EdgesGeometry(wallGeo);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
+            line.position.copy(wall.position);
+            scene.add(line);
+
+            // Collision bounds
+            const box = new THREE.Box3().setFromObject(wall);
+            wallBoundingBoxes.push(box);
         }
-        createWall(-6, -6, 2, 6);
-        createWall(6, -8, 6, 2);
+
+        // Outer Boundary Walls
+        createWall(0, -22, 44, 2);
+        createWall(-22, 0, 2, 44);
+        createWall(22, 0, 2, 44);
+        createWall(0, 22, 44, 2);
+
+        // Maze Walls
+        createWall(-8, -10, 2, 16);
+        createWall(8, -10, 2, 16);
+        createWall(0, -2, 14, 2);
+        createWall(-12, 6, 12, 2);
+        createWall(12, 6, 12, 2);
 
         // Baby Rooms / Containment Cages
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
         
         const room1 = new THREE.Mesh(roomGeo, roomMat);
-        room1.position.set(-8, 1.25, -12);
+        room1.position.set(-14, 1.25, -14);
         scene.add(room1);
 
         const room2 = new THREE.Mesh(roomGeo, roomMat);
-        room2.position.set(8, 1.25, -15);
+        room2.position.set(14, 1.25, -14);
         scene.add(room2);
 
         const loader = new THREE.GLTFLoader();
         const rooms = [];
 
-        // Fallback helper placeholders while models load
         const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
         const fallbackBabyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8 });
 
@@ -115,16 +164,13 @@
         }
 
         let babyModelTemplate = null;
-        let pendingRooms = [];
 
-        // Load 3D Baby Snails
         loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
             babyModelTemplate = gltf.scene;
             initRoomsWithModels();
         }, undefined, function (error) {
-            console.warn('CORS/Local load blocked for baby model, using fallback shapes.', error);
-            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-8, -12), rescued: false });
-            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(8, -15), rescued: false });
+            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false });
+            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false });
         });
 
         function initRoomsWithModels() {
@@ -132,12 +178,12 @@
             
             const babyModel1 = babyModelTemplate.clone();
             babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-8, 0.3, -12);
+            babyModel1.position.set(-14, 0.3, -14);
             scene.add(babyModel1);
 
             const babyModel2 = babyModelTemplate.clone();
             babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(8, 0.3, -15);
+            babyModel2.position.set(14, 0.3, -14);
             scene.add(babyModel2);
 
             rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
@@ -148,20 +194,20 @@
         const bellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
         const bellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
         const magicBell = new THREE.Mesh(bellGeo, bellMat);
-        magicBell.position.set(3, 0.75, -4);
+        magicBell.position.set(0, 0.75, -8);
         scene.add(magicBell);
-        let bellVelocity = new THREE.Vector3(0.04, 0, 0.03);
+        let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
         // Enemy Shooters & Projectiles
         const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
         const enemies = [];
         const bullets = [];
-        const bulletGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
         const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
 
         for(let i = 0; i < 2; i++) {
-            const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 1), enemyMat);
-            enemy.position.set((Math.random() - 0.5) * 20, 0.9, -5 - Math.random() * 15);
+            const enemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
+            enemy.position.set(i === 0 ? -15 : 15, 0.9, -6);
             scene.add(enemy);
             enemies.push({ 
                 mesh: enemy, 
@@ -174,15 +220,26 @@
         // Snail Group (Main Character)
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
+        snailGroup.position.set(0, 0, 10);
 
-        const ringGeo = new THREE.TorusGeometry(1.8, 0.08, 16, 100);
-        const ringMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, wireframe: true });
-        const energyShell = new THREE.Mesh(ringGeo, ringMat);
-        energyShell.rotation.x = Math.PI / 2;
-        energyShell.position.y = 0.5;
-        snailGroup.add(energyShell);
+        // Dynamic Reflective Shield
+        const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
+        const shieldMat = new THREE.MeshPhysicalMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.45, 
+            roughness: 0.1, 
+            metalness: 0.9,
+            clearcoat: 1.0, 
+            clearcoatRoughness: 0.1,
+            emissive: 0x00aaff,
+            emissiveIntensity: 0.5
+        });
+        const reflectiveShield = new THREE.Mesh(shieldGeo, shieldMat);
+        reflectiveShield.position.y = 0.8;
+        snailGroup.add(reflectiveShield);
 
-        // Fallback main character shape if local load fails
+        // Fallback main character shape
         const fallbackMainGeo = new THREE.BoxGeometry(1, 1, 1);
         const fallbackMainMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc });
         const fallbackMain = new THREE.Mesh(fallbackMainGeo, fallbackMainMat);
@@ -191,17 +248,16 @@
 
         // Load Main Astral Knight Snail Model
         loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
-            snailGroup.remove(fallbackMain); // Remove fallback box once model loads successfully
+            snailGroup.remove(fallbackMain);
             const character = gltf.scene;
             character.scale.set(0.8, 0.8, 0.8);
-            character.position.y = 1; 
+            character.position.y = 0.3; 
             snailGroup.add(character);
-        }, undefined, function (error) {
-            console.warn('CORS/Local load blocked for main character model, keeping fallback shape.', error);
-        });
+        }, undefined, function (error) {});
 
         // Game State
         let moveX = 0, moveZ = 0;
+        let isShieldActive = false;
         let score = 0;
         let health = 100;
         let carriedBabies = [];
@@ -256,25 +312,42 @@
         }
 
         setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
+        
+        // Right stick activates reflective shield
         setupJoystick('right-stick', 'right-knob', (x, y) => {
-            if (Math.abs(x) > 0.4 || Math.abs(y) > 0.4) energyShell.scale.set(1.3, 1.3, 1.3);
-            else energyShell.scale.set(1, 1, 1);
+            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
+                isShieldActive = true;
+                reflectiveShield.scale.set(1.3, 1.3, 1.3);
+                shieldMat.emissiveIntensity = 1.0;
+            } else {
+                isShieldActive = false;
+                reflectiveShield.scale.set(1.0, 1.0, 1.0);
+                shieldMat.emissiveIntensity = 0.4;
+            }
         });
 
         function updateHealthBar() {
             const fill = document.getElementById('health-fill');
             fill.style.width = Math.max(0, health) + '%';
-            if (health < 30) {
-                fill.style.background = '#ff3300';
-            } else {
-                fill.style.background = '#00ffcc';
-            }
+            fill.style.background = health < 30 ? '#ff3300' : '#00ffcc';
         }
 
         function endGame(message) {
             gameOver = true;
             document.getElementById('status-text').innerText = message;
             document.getElementById('status-screen').style.display = 'flex';
+        }
+
+        // Wall collision check
+        function canMoveTo(nextX, nextZ) {
+            const playerBox = new THREE.Box3(
+                new THREE.Vector3(nextX - 0.7, 0, nextZ - 0.7),
+                new THREE.Vector3(nextX + 0.7, 2, nextZ + 0.7)
+            );
+            for (let box of wallBoundingBoxes) {
+                if (playerBox.intersectsBox(box)) return false;
+            }
+            return true;
         }
 
         // Animation Loop
@@ -288,25 +361,26 @@
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
                 document.getElementById('player-status').style.color = "#ffcc00";
             } else {
-                document.getElementById('player-status').innerText = "Active";
-                document.getElementById('player-status').style.color = "#00ffcc";
+                document.getElementById('player-status').innerText = isShieldActive ? "SHIELD ACTIVE" : "Active";
+                document.getElementById('player-status').style.color = isShieldActive ? "#00ffff" : "#00ffcc";
 
-                let newX = snailGroup.position.x + (moveX * 0.08);
-                let newZ = snailGroup.position.z + (moveZ * 0.08);
-                snailGroup.position.x = Math.max(-25, Math.min(25, newX));
-                snailGroup.position.z = Math.max(-25, Math.min(25, newZ));
+                let nextX = snailGroup.position.x + (moveX * 0.1);
+                let nextZ = snailGroup.position.z + (moveZ * 0.1);
+
+                if (canMoveTo(nextX, snailGroup.position.z)) snailGroup.position.x = nextX;
+                if (canMoveTo(snailGroup.position.x, nextZ)) snailGroup.position.z = nextZ;
 
                 if (moveX !== 0 || moveZ !== 0) {
                     snailGroup.rotation.y = Math.atan2(moveX, moveZ);
                 }
             }
 
-            energyShell.rotation.z += 0.05;
+            reflectiveShield.rotation.y += 0.02;
 
             // Move Magic Bell Hazard
             magicBell.position.add(bellVelocity);
-            if (Math.abs(magicBell.position.x) > 15) bellVelocity.x *= -1;
-            if (Math.abs(magicBell.position.z + 10) > 15) bellVelocity.z *= -1;
+            if (Math.abs(magicBell.position.x) > 18) bellVelocity.x *= -1;
+            if (Math.abs(magicBell.position.z) > 18) bellVelocity.z *= -1;
             magicBell.rotation.y += 0.03;
 
             // Check Bell Freeze Collision
@@ -314,12 +388,12 @@
                 freezeTimer = 5.0; 
             }
 
-            // Move Random Enemy Shooters & Fire Bullets
+            // Move Enemy Shooters & Fire Bullets
             enemies.forEach(en => {
                 en.mesh.position.x += en.speedX;
                 en.mesh.position.z += en.speedZ;
-                if (Math.abs(en.mesh.position.x) > 20) en.speedX *= -1;
-                if (Math.abs(en.mesh.position.z) > 20) en.speedZ *= -1;
+                if (Math.abs(en.mesh.position.x) > 18) en.speedX *= -1;
+                if (Math.abs(en.mesh.position.z) > 18) en.speedZ *= -1;
 
                 en.shootCooldown--;
                 if (en.shootCooldown <= 0) {
@@ -329,22 +403,26 @@
                     bullet.position.y = 1.0;
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
                     scene.add(bullet);
-                    bullets.push({ mesh: bullet, dir: dir, speed: 0.12 });
-                }
-
-                if (snailGroup.position.distanceTo(en.mesh.position) < 2.0) {
-                    health = Math.max(0, health - 1.0);
-                    updateHealthBar();
-                    if (health <= 0) endGame("GAME OVER - DESTROYED");
+                    bullets.push({ mesh: bullet, dir: dir, speed: 0.14 });
                 }
             });
 
-            // Update Bullets
+            // Bullets Collision & Reflective Bounce Mechanics
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
 
-                if (b.mesh.position.distanceTo(snailGroup.position) < 1.5) {
+                let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
+
+                // If Shield is active, deflect bullets back
+                if (isShieldActive && distToPlayer < 2.0) {
+                    b.dir.negate();
+                    b.speed *= 1.2;
+                    b.mesh.material.color.setHex(0x00ffff);
+                    continue;
+                } 
+                // Direct Hit without Shield
+                else if (!isShieldActive && distToPlayer < 1.2) {
                     health = Math.max(0, health - 15);
                     updateHealthBar();
                     scene.remove(b.mesh);
@@ -353,7 +431,7 @@
                     continue;
                 }
 
-                if (Math.abs(b.mesh.position.x) > 30 || Math.abs(b.mesh.position.z) > 30) {
+                if (Math.abs(b.mesh.position.x) > 25 || Math.abs(b.mesh.position.z) > 25) {
                     scene.remove(b.mesh);
                     bullets.splice(i, 1);
                 }
@@ -363,12 +441,12 @@
             rooms.forEach(room => {
                 if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
-                    room.mesh.visible = false; // Hide room cage
+                    room.mesh.visible = false;
                     carriedBabies.push(room.babyMesh);
                 }
             });
 
-            // Make rescued babies follow right behind the snail
+            // Rescued baby trail
             for (let i = 0; i < carriedBabies.length; i++) {
                 let baby = carriedBabies[i];
                 let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
@@ -376,7 +454,7 @@
                 baby.position.y = 0.3;
             }
 
-            // Home Base Drop-off Check
+              // Home Base Drop-off Check
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
@@ -391,7 +469,7 @@
 
             // Camera Tracking
             camera.position.x = snailGroup.position.x;
-            camera.position.z = snailGroup.position.z + 12;
+            camera.position.z = snailGroup.position.z + 14;
             camera.lookAt(snailGroup.position.x, snailGroup.position.y, snailGroup.position.z);
 
             renderer.render(scene, camera);
@@ -406,4 +484,4 @@
     </script>
 </body>
 </html>
-
+          
