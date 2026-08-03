@@ -11,36 +11,34 @@
         .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
         #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
 
+        /* High contrast controllers that stand out against wood textures */
         .joystick { 
-    position: absolute; 
-    bottom: 30px; 
-    width: 120px; 
-    height: 120px; 
-    /* Solid dark backdrop with neon border so it stands out over wood */
-    background: rgba(5, 5, 8, 0.75); 
-    border: 3px solid #00ffcc; 
-    border-radius: 50%; 
-    pointer-events: auto; 
-    box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
-}
-
-#left-stick { left: 30px; }
-#right-stick { right: 30px; }
-
-.stick-knob { 
-    position: absolute; 
-    top: 35px; 
-    left: 35px; 
-    width: 50px; 
-    height: 50px; 
-    /* High contrast cyan knob with dark outline */
-    background: #00ffcc; 
-    border: 2px solid #050508;
-    border-radius: 50%; 
-    pointer-events: none; 
-    box-shadow: 0 0 12px #00ffcc; 
-}
-
+            position: absolute; 
+            bottom: 30px; 
+            width: 120px; 
+            height: 120px; 
+            background: rgba(5, 5, 8, 0.75); 
+            border: 3px solid #00ffcc; 
+            border-radius: 50%; 
+            pointer-events: auto; 
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+        #left-stick { left: 30px; }
+        #right-stick { right: 30px; }
+        
+        .stick-knob { 
+            position: absolute; 
+            top: 35px; 
+            left: 35px; 
+            width: 50px; 
+            height: 50px; 
+            background: #00ffcc; 
+            border: 2px solid #050508;
+            border-radius: 50%; 
+            pointer-events: none; 
+            box-shadow: 0 0 12px #00ffcc; 
+        }
+        
         #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
         #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     </style>
@@ -99,7 +97,7 @@
         const floorGeo = new THREE.PlaneGeometry(100, 100);
         const floorMat = new THREE.MeshStandardMaterial({ 
             map: floorTexture,
-            color: 0xffffff, // White neutral base so texture colors render accurately
+            color: 0xffffff,
             roughness: 0.8, 
             metalness: 0.2 
         });
@@ -129,7 +127,7 @@
 
         const obstacleMat = new THREE.MeshStandardMaterial({ 
             map: wallTexture,
-            color: 0xffffff, // White neutral base so texture colors render accurately
+            color: 0xffffff,
             roughness: 0.4, 
             metalness: 0.5 
         });
@@ -341,9 +339,9 @@
 
         setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
         
-        // Right stick activates reflective shield
+        // Right stick activates reflective shield (Disabled while frozen)
         setupJoystick('right-stick', 'right-knob', (x, y) => {
-            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
+            if ((Math.abs(x) > 0.3 || Math.abs(y) > 0.3) && freezeTimer <= 0) {
                 isShieldActive = true;
                 reflectiveShield.scale.set(1.3, 1.3, 1.3);
                 shieldMat.emissiveIntensity = 1.0;
@@ -383,9 +381,13 @@
             requestAnimationFrame(animate);
             if (gameOver) return;
 
-            // Handle Freeze State
+            // Handle Freeze State & Disable Shield
             if (freezeTimer > 0) {
                 freezeTimer -= 0.016;
+                isShieldActive = false;
+                reflectiveShield.scale.set(1.0, 1.0, 1.0);
+                shieldMat.emissiveIntensity = 0.4;
+
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
                 document.getElementById('player-status').style.color = "#ffcc00";
             } else {
@@ -446,7 +448,7 @@
                 // Check wall bounce collisions
                 for (let wallBox of wallBoundingBoxes) {
                     if (bulletBox.intersectsBox(wallBox)) {
-                        b.dir.negate(); // Reverse bullet direction off walls
+                        b.dir.negate();
                         hitWall = true;
                         break;
                     }
@@ -479,9 +481,14 @@
                 }
             }
 
-            // Room Rescue & Following Mechanics
+            // Room Rescue Mechanics (Forces Shield Drop on Pickup)
             rooms.forEach(room => {
                 if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
+                    // FORCE SHIELD DROP UPON RESCUE
+                    isShieldActive = false;
+                    reflectiveShield.scale.set(1.0, 1.0, 1.0);
+                    shieldMat.emissiveIntensity = 0.4;
+
                     room.rescued = true;
                     room.mesh.visible = false;
                     carriedBabies.push(room.babyMesh);
