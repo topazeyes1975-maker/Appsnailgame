@@ -110,7 +110,7 @@
         floorGrid.position.y = 0.01;
         scene.add(floorGrid);
 
-        // Home Base
+        // Home Base (Fixed & Locked to Scene)
         const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
         const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
         const homeBase = new THREE.Mesh(baseGeo, baseMat);
@@ -215,7 +215,7 @@
         }
 
         // =========================================================
-        // 🔔 MAGIC BELL HAZARD (GROUP WITH LOADER & FALLBACK)
+        // 🔔 MAGIC BELL HAZARD
         // =========================================================
         const bellGroup = new THREE.Group();
         bellGroup.position.set(0, 0.75, -8);
@@ -238,7 +238,7 @@
         let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
         // =========================================================
-        // 👾 ENEMY SHOOTERS (GROUPS WITH LOADER & FALLBACKS)
+        // 👾 ENEMY SHOOTERS (LIFTED OFF FLOOR)
         // =========================================================
         const enemies = [];
         const bullets = [];
@@ -249,7 +249,8 @@
 
         for (let i = 0; i < 2; i++) {
             const enemyGroup = new THREE.Group();
-            enemyGroup.position.set(i === 0 ? -15 : 15, 0.9, -6);
+            // Raised Y position to 1.8 so they sit flush on the floor
+            enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6);
             scene.add(enemyGroup);
 
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
@@ -258,6 +259,7 @@
             loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
+                humanModel.position.y = 0.5; // Extra vertical nudge
                 humanModel.scale.set(0.8, 0.8, 0.8);
                 enemyGroup.add(humanModel);
             }, undefined, function (error) {
@@ -460,19 +462,6 @@
             });
 
             // Bullets Collision
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, b.speed);
-
-                let bulletBox = new THREE.Box3().setFromObject(b.mesh);
-                let hitWall = false;
-
-                for (let wallBox of wallBoundingBoxes) {
-                    if (bulletBox.intersectsBox(wallBox)) {
-                        b.dir.negate();
-                        hitWall = true;
-                        break;
-                    }  // Bullets Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
