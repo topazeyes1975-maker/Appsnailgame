@@ -22,9 +22,10 @@
             pointer-events: auto; 
             box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
         }
+
         #left-stick { left: 30px; }
         #right-stick { right: 30px; }
-        
+
         .stick-knob { 
             position: absolute; 
             top: 35px; 
@@ -37,14 +38,14 @@
             pointer-events: none; 
             box-shadow: 0 0 12px #00ffcc; 
         }
-        
+
         #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
         #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="ui">
-        Objective: Rescue Babies &amp; Survive!<br>
+        Objective: Rescue Babies & Survive!<br>
         Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
         Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
         Time Left: <span id="timer">45</span>
@@ -85,7 +86,7 @@
         const textureLoader = new THREE.TextureLoader();
         textureLoader.setCrossOrigin('anonymous');
 
-        // Floor Setup
+        // Load Floor Image Texture
         const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -109,14 +110,14 @@
         floorGrid.position.y = 0.01;
         scene.add(floorGrid);
 
-        // Home Base
+        // Home Base (Fixed & Locked to Scene)
         const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
         const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
         const homeBase = new THREE.Mesh(baseGeo, baseMat);
         homeBase.position.set(0, 0.02, 10);
         scene.add(homeBase);
 
-        // Walls Setup
+        // Load Wall Image Texture
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -148,19 +149,20 @@
             wallBoundingBoxes.push(box);
         }
 
-        // Map Layout
+        // Boundary Walls
         createWall(0, -22, 44, 2);
         createWall(-22, 0, 2, 44);
         createWall(22, 0, 2, 44);
         createWall(0, 22, 44, 2);
 
+        // Maze Walls
         createWall(-8, -10, 2, 16);
         createWall(8, -10, 2, 16);
         createWall(0, -2, 14, 2);
         createWall(-12, 6, 12, 2);
         createWall(12, 6, 12, 2);
 
-        // Containment Cages
+        // Baby Containment Cages
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
         
@@ -173,6 +175,7 @@
         scene.add(room2);
 
         const loader = new THREE.GLTFLoader();
+        const rooms = [];
 
         const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
         const fallbackBabyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8 });
@@ -184,104 +187,100 @@
             return mesh;
         }
 
-        // Initialize rooms array with immediate fallback objects
-        const rooms = [
-            { mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false },
-            { mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false }
-        ];
+        let babyModelTemplate = null;
 
         loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
-            const template = gltf.scene;
-            
-            // Swap out fallbacks if models load successfully
-            if (rooms[0].babyMesh) scene.remove(rooms[0].babyMesh);
-            if (rooms[1].babyMesh) scene.remove(rooms[1].babyMesh);
-
-            const b1 = template.clone();
-            b1.scale.set(0.5, 0.5, 0.5);
-            b1.position.set(-14, 0.3, -14);
-            scene.add(b1);
-            rooms[0].babyMesh = b1;
-
-            const b2 = template.clone();
-            b2.scale.set(0.5, 0.5, 0.5);
-            b2.position.set(14, 0.3, -14);
-            scene.add(b2);
-            rooms[1].babyMesh = b2;
+            babyModelTemplate = gltf.scene;
+            initRoomsWithModels();
         }, undefined, function (error) {
-            console.error("Galactic Snail model load error, using fallbacks:", error);
+            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false });
+            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false });
         });
 
+        function initRoomsWithModels() {
+            if (!babyModelTemplate) return;
+            
+            const babyModel1 = babyModelTemplate.clone();
+            babyModel1.scale.set(0.5, 0.5, 0.5);
+            babyModel1.position.set(-14, 0.3, -14);
+            scene.add(babyModel1);
+
+            const babyModel2 = babyModelTemplate.clone();
+            babyModel2.scale.set(0.5, 0.5, 0.5);
+            babyModel2.position.set(14, 0.3, -14);
+            scene.add(babyModel2);
+
+            rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
+            rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
+        }
+
         // =========================================================
-// 🏠 HOME BASE (Locked to scene, NOT tied to player)
-// =========================================================
-const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-const baseMat = new THREE.MeshStandardMaterial({ 
-    color: 0x00ffcc, 
-    emissive: 0x00ffcc, 
-    emissiveIntensity: 0.3 
-});
-const homeBase = new THREE.Mesh(baseGeo, baseMat);
-homeBase.position.set(0, 0.02, 10); // Fixed location in the maze
-scene.add(homeBase); // Added strictly to scene, NOT snailGroup!
-loader.load('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb', function (gltf) {
+        // 🔔 MAGIC BELL HAZARD
+        // =========================================================
+        const bellGroup = new THREE.Group();
+        bellGroup.position.set(0, 0.75, -8);
+        scene.add(bellGroup);
+
+        const fallbackBellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
+        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
+        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
+        bellGroup.add(fallbackBell);
+
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
             bellGroup.add(bellModel);
         }, undefined, function (error) {
-            console.error("Bell load error:", error);
+            console.error("Bell model load error:", error);
         });
 
+        let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
+
         // =========================================================
-// 👾 ENEMY WALKERS (Lifted up off the floor)
-// =========================================================
-const enemies = [];
-const bullets = [];
-const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
-const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
-const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
+        // 👾 ENEMY SHOOTERS (LIFTED OFF FLOOR)
+        // =========================================================
+        const enemies = [];
+        const bullets = [];
+        const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
+        const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
 
-for (let i = 0; i < 2; i++) {
-    const enemyGroup = new THREE.Group();
-    // Raised Y position to 1.8 so their feet sit flush on top of the floor
-    enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6); 
-    scene.add(enemyGroup);
+        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
 
-    const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
-    enemyGroup.add(fallbackEnemy);
+        for (let i = 0; i < 2; i++) {
+            const enemyGroup = new THREE.Group();
+            // Raised Y position to 1.8 so they sit flush on the floor
+            enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6);
+            scene.add(enemyGroup);
 
-    loader.load(
-        encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), 
-        function (gltf) {
-            enemyGroup.remove(fallbackEnemy);
-            const humanModel = gltf.scene;
-            
-            // If they still look slightly low, nudge humanModel.position.y upward
-            humanModel.position.y = 0.5; 
-            humanModel.scale.set(0.8, 0.8, 0.8);
-            
-            enemyGroup.add(humanModel);
-        }, 
-        undefined, 
-        function (error) {
-            console.error("Human Walker load error:", error);
+            const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
+            enemyGroup.add(fallbackEnemy);
+
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
+                enemyGroup.remove(fallbackEnemy);
+                const humanModel = gltf.scene;
+                humanModel.position.y = 0.5; // Extra vertical nudge
+                humanModel.scale.set(0.8, 0.8, 0.8);
+                enemyGroup.add(humanModel);
+            }, undefined, function (error) {
+                console.error("Human Walker load error:", error);
+            });
+
+            enemies.push({ 
+                mesh: enemyGroup, 
+                speedX: (Math.random() - 0.5) * 0.04, 
+                speedZ: (Math.random() - 0.5) * 0.04,
+                shootCooldown: Math.random() * 60 + 30 
+            });
         }
-    );
 
-    enemies.push({ 
-        mesh: enemyGroup, 
-        speedX: (Math.random() - 0.5) * 0.04, 
-        speedZ: (Math.random() - 0.5) * 0.04,
-        shootCooldown: Math.random() * 60 + 30 
-    });
-}
-        // Main Character Snail Group
+        // =========================================================
+        // 🐌 SNAIL GROUP (MAIN CHARACTER)
+        // =========================================================
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
         snailGroup.position.set(0, 0, 10);
 
-        // Shield
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
             color: 0x00ffff, 
@@ -298,22 +297,19 @@ for (let i = 0; i < 2; i++) {
         reflectiveShield.position.y = 0.8;
         snailGroup.add(reflectiveShield);
 
-        // Fallback Main Snail
         const fallbackMainGeo = new THREE.BoxGeometry(1, 1, 1);
         const fallbackMainMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc });
         const fallbackMain = new THREE.Mesh(fallbackMainGeo, fallbackMainMat);
         fallbackMain.position.y = 0.5;
         snailGroup.add(fallbackMain);
 
-        loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
+        loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             snailGroup.remove(fallbackMain);
             const character = gltf.scene;
             character.scale.set(0.8, 0.8, 0.8);
             character.position.y = 0.9; 
             snailGroup.add(character);
-        }, undefined, function (error) {
-            console.error("Astral Knight model load error:", error);
-        });
+        }, undefined, function (error) {});
 
         // Game State
         let moveX = 0, moveZ = 0;
@@ -374,7 +370,7 @@ for (let i = 0; i < 2; i++) {
         setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
         
         setupJoystick('right-stick', 'right-knob', (x, y) => {
-            if ((Math.abs(x) > 0.3 || Math.abs(y) > 0.3) && freezeTimer <= 0) {
+            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
                 isShieldActive = true;
                 reflectiveShield.scale.set(1.3, 1.3, 1.3);
                 shieldMat.emissiveIntensity = 1.0;
@@ -408,18 +404,14 @@ for (let i = 0; i < 2; i++) {
             return true;
         }
 
-        // Main Loop
+        // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
             if (gameOver) return;
 
-            // Handle Freeze
+            // Handle Freeze State
             if (freezeTimer > 0) {
                 freezeTimer -= 0.016;
-                isShieldActive = false;
-                reflectiveShield.scale.set(1.0, 1.0, 1.0);
-                shieldMat.emissiveIntensity = 0.4;
-
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
                 document.getElementById('player-status').style.color = "#ffcc00";
             } else {
@@ -439,40 +431,37 @@ for (let i = 0; i < 2; i++) {
 
             reflectiveShield.rotation.y += 0.02;
 
-            // Move Floating 3D Bell
+            // Move Magic Bell Hazard
             bellGroup.position.add(bellVelocity);
             if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
             if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
             bellGroup.rotation.y += 0.03;
 
-            // Bell Collision Check
+            // Check Bell Freeze Collision
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
 
-            // Move Human Walkers & Shoot Bullets
+            // Move Enemy Shooters & Fire Bullets
             enemies.forEach(en => {
-                en.group.position.x += en.speedX;
-                en.group.position.z += en.speedZ;
-                if (Math.abs(en.group.position.x) > 18) en.speedX *= -1;
-                if (Math.abs(en.group.position.z) > 18) en.speedZ *= -1;
-
-                if (en.speedX !== 0 || en.speedZ !== 0) {
-                    en.group.rotation.y = Math.atan2(en.speedX, en.speedZ);
-                }
+                en.mesh.position.x += en.speedX;
+                en.mesh.position.z += en.speedZ;
+                if (Math.abs(en.mesh.position.x) > 18) en.speedX *= -1;
+                if (Math.abs(en.mesh.position.z) > 18) en.speedZ *= -1;
 
                 en.shootCooldown--;
                 if (en.shootCooldown <= 0) {
                     en.shootCooldown = 90 + Math.random() * 60;
                     const bullet = new THREE.Mesh(bulletGeo, bulletMat);
-                    bullet.position.copy(en.group.position);
+                    bullet.position.copy(en.mesh.position);
                     bullet.position.y = 1.0;
-                    const dir = new THREE.Vector3().subVectors(snailGroup.position, en.group.position).normalize();
+                    const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
                     scene.add(bullet);
                     bullets.push({ mesh: bullet, dir: dir, speed: 0.14 });
                 }
             });
-// Bullets Collision Logic
+
+        // Bullets Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -513,16 +502,16 @@ for (let i = 0; i < 2; i++) {
                 }
             }
 
-            // Room Rescue Mechanics (CANNOT RESCUE WHILE SHIELD IS ACTIVE)
+            // Room Rescue
             rooms.forEach(room => {
-                if (!room.rescued && room.babyMesh && !isShieldActive && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
+                if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
                     room.mesh.visible = false;
                     carriedBabies.push(room.babyMesh);
                 }
             });
 
-            // Trail behind main character
+            // Rescued baby trail
             for (let i = 0; i < carriedBabies.length; i++) {
                 let baby = carriedBabies[i];
                 let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
@@ -530,7 +519,7 @@ for (let i = 0; i < 2; i++) {
                 baby.position.y = 0.3;
             }
 
-            // Home Base Rescue Check
+            // Home Base Drop-off
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
@@ -559,4 +548,4 @@ for (let i = 0; i < 2; i++) {
         });
     </script>
 </body>
-</html>
+</html> 
