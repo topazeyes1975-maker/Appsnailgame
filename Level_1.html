@@ -124,7 +124,7 @@ const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
 homeBaseGroup.add(fallbackBase);
 
 // Load your 3D Home Base GLB model
-loader.load('YOUR_HOME_BASE_MODEL.glb', function (gltf) {
+loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
     homeBaseGroup.remove(fallbackBase); // Remove fallback once loaded
     const baseModel = gltf.scene;
     baseModel.scale.set(1.0, 1.0, 1.0); // Adjust scale if needed
