@@ -212,19 +212,19 @@
             console.error("Galactic Snail model load error, using fallbacks:", error);
         });
 
-        // --- 3D MAGIC BELL HAZARD SETUP ---
-        const bellGroup = new THREE.Group();
-        bellGroup.position.set(0, 1, -10);
-        scene.add(bellGroup);
-
-        const fallbackBellGeo = new THREE.SphereGeometry(0.8, 16, 16);
-        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xaa8800 });
-        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
-        bellGroup.add(fallbackBell);
-
-        const bellVelocity = new THREE.Vector3(0.08, 0, 0.05);
-
-        loader.load('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb', function (gltf) {
+        // =========================================================
+// 🏠 HOME BASE (Locked to scene, NOT tied to player)
+// =========================================================
+const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
+const baseMat = new THREE.MeshStandardMaterial({ 
+    color: 0x00ffcc, 
+    emissive: 0x00ffcc, 
+    emissiveIntensity: 0.3 
+});
+const homeBase = new THREE.Mesh(baseGeo, baseMat);
+homeBase.position.set(0, 0.02, 10); // Fixed location in the maze
+scene.add(homeBase); // Added strictly to scene, NOT snailGroup!
+loader.load('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb', function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -233,38 +233,49 @@
             console.error("Bell load error:", error);
         });
 
-        // --- 3D HUMAN WALKERS & BULLETS SETUP ---
-        const bullets = [];
-        const bulletGeo = new THREE.SphereGeometry(0.2, 8, 8);
-        const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055 });
+        // =========================================================
+// 👾 ENEMY WALKERS (Lifted up off the floor)
+// =========================================================
+const enemies = [];
+const bullets = [];
+const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
+const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
+const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
 
-        const enemies = [];
-        const enemyGroup = new THREE.Group();
-        enemyGroup.position.set(-10, 0, 5);
-        scene.add(enemyGroup);
+for (let i = 0; i < 2; i++) {
+    const enemyGroup = new THREE.Group();
+    // Raised Y position to 1.8 so their feet sit flush on top of the floor
+    enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6); 
+    scene.add(enemyGroup);
 
-        const fallbackEnemyGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.8);
-        const fallbackEnemyMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const fallbackEnemy = new THREE.Mesh(fallbackEnemyGeo, fallbackEnemyMat);
-        fallbackEnemy.position.y = 0.9;
-        enemyGroup.add(fallbackEnemy);
+    const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
+    enemyGroup.add(fallbackEnemy);
 
-        enemies.push({
-            group: enemyGroup,
-            speedX: 0.06,
-            speedZ: 0.04,
-            shootCooldown: 60
-        });
-
-        loader.load('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb', function (gltf) {
+    loader.load(
+        encodeURI(''), 
+        function (gltf) {
             enemyGroup.remove(fallbackEnemy);
             const humanModel = gltf.scene;
+            
+            // If they still look slightly low, nudge humanModel.position.y upward
+            humanModel.position.y = 0.5; 
             humanModel.scale.set(0.8, 0.8, 0.8);
+            
             enemyGroup.add(humanModel);
-        }, undefined, function (error) {
+        }, 
+        undefined, 
+        function (error) {
             console.error("Human Walker load error:", error);
-        });
+        }
+    );
 
+    enemies.push({ 
+        mesh: enemyGroup, 
+        speedX: (Math.random() - 0.5) * 0.04, 
+        speedZ: (Math.random() - 0.5) * 0.04,
+        shootCooldown: Math.random() * 60 + 30 
+    });
+}
         // Main Character Snail Group
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
