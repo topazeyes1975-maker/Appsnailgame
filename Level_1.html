@@ -117,7 +117,7 @@
         // 🏠 3D HOME BASE MODEL
         // =========================================================
         const homeBaseGroup = new THREE.Group();
-        homeBaseGroup.position.set(1, 1, 1);
+        homeBaseGroup.position.set(1, 5, 1);
         scene.add(homeBaseGroup);
 
         const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
@@ -128,7 +128,7 @@
         loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
             homeBaseGroup.remove(fallbackBase);
             const baseModel = gltf.scene;
-            baseModel.scale.set(3.0, 10, 3.0);
+            baseModel.scale.set(3.0, 3.0, 3.0);
             homeBaseGroup.add(baseModel);
         }, undefined, function (error) {
             console.error("Home Base model load error:", error);
