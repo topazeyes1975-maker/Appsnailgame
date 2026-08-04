@@ -74,6 +74,9 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // GLTF LOADER INITIALIZED FIRST
+        const loader = new THREE.GLTFLoader();
+
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
@@ -111,27 +114,25 @@
         scene.add(floorGrid);
 
         // =========================================================
-// 🏠 3D HOME BASE MODEL
-// =========================================================
-const homeBaseGroup = new THREE.Group();
-homeBaseGroup.position.set(0, 0.02, 10);
-scene.add(homeBaseGroup);
+        // 🏠 3D HOME BASE MODEL
+        // =========================================================
+        const homeBaseGroup = new THREE.Group();
+        homeBaseGroup.position.set(0, 0.02, 10);
+        scene.add(homeBaseGroup);
 
-// Fallback box while the 3D model loads
-const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
-const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
-homeBaseGroup.add(fallbackBase);
+        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
+        const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
+        homeBaseGroup.add(fallbackBase);
 
-// Load your 3D Home Base GLB model
-loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
-    homeBaseGroup.remove(fallbackBase); // Remove fallback once loaded
-    const baseModel = gltf.scene;
-    baseModel.scale.set(1.0, 1.0, 1.0); // Adjust scale if needed
-    homeBaseGroup.add(baseModel);
-}, undefined, function (error) {
-    console.error("Home Base model load error:", error);
-});
+        loader.load('Meshy_AI_Gigantic_Tardis_1785677000_compressed.glb', function (gltf) {
+            homeBaseGroup.remove(fallbackBase);
+            const baseModel = gltf.scene;
+            baseModel.scale.set(1.0, 1.0, 1.0);
+            homeBaseGroup.add(baseModel);
+        }, undefined, function (error) {
+            console.error("Home Base model load error:", error);
+        });
 
         // Load Wall Image Texture
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
@@ -190,7 +191,6 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
         room2.position.set(14, 1.25, -14);
         scene.add(room2);
 
-        const loader = new THREE.GLTFLoader();
         const rooms = [];
 
         const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
@@ -254,7 +254,7 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
         let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
         // =========================================================
-        // 👾 ENEMY SHOOTERS (LIFTED OFF FLOOR)
+        // 👾 ENEMY SHOOTERS
         // =========================================================
         const enemies = [];
         const bullets = [];
@@ -265,7 +265,6 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
 
         for (let i = 0; i < 2; i++) {
             const enemyGroup = new THREE.Group();
-            // Raised Y position to 1.8 so they sit flush on the floor
             enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6);
             scene.add(enemyGroup);
 
@@ -275,7 +274,7 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
             loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
-                humanModel.position.y = 0.5; // Extra vertical nudge
+                humanModel.position.y = 0.5;
                 humanModel.scale.set(0.8, 0.8, 0.8);
                 enemyGroup.add(humanModel);
             }, undefined, function (error) {
@@ -457,8 +456,7 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
-
-            // Move Enemy Shooters & Fire Bullets
+// Move Enemy Shooters & Fire Bullets
             enemies.forEach(en => {
                 en.mesh.position.x += en.speedX;
                 en.mesh.position.z += en.speedZ;
@@ -477,7 +475,7 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
                 }
             });
 
-        // Bullets Collision
+            // Bullets Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -536,17 +534,17 @@ loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.
             }
 
             // Home Base Drop-off
-if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
-    score += carriedBabies.length;
-    document.getElementById('score').innerText = score;
-    
-    carriedBabies.forEach(baby => scene.remove(baby));
-    carriedBabies = [];
+            if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
+                score += carriedBabies.length;
+                document.getElementById('score').innerText = score;
+                
+                carriedBabies.forEach(baby => scene.remove(baby));
+                carriedBabies = [];
 
-    if (score >= 2) {
-        endGame("LEVEL 1 VICTORY!");
-    }
-}
+                if (score >= 2) {
+                    endGame("LEVEL 1 VICTORY!");
+                }
+            }
 
             // Camera Tracking
             camera.position.x = snailGroup.position.x;
@@ -564,4 +562,5 @@ if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.pos
         });
     </script>
 </body>
-</html> 
+</html>
+            
