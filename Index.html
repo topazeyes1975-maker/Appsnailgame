@@ -1,551 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Armored Snail: Level 1 Survival</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 15px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.5; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
-        
-        .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
-        #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
-
-        .joystick { 
-            position: absolute; 
-            bottom: 30px; 
-            width: 120px; 
-            height: 120px; 
-            background: rgba(5, 5, 8, 0.75); 
-            border: 3px solid #00ffcc; 
-            border-radius: 50%; 
-            pointer-events: auto; 
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
-        }
-
-        #left-stick { left: 30px; }
-        #right-stick { right: 30px; }
-
-        .stick-knob { 
-            position: absolute; 
-            top: 35px; 
-            left: 35px; 
-            width: 50px; 
-            height: 50px; 
-            background: #00ffcc; 
-            border: 2px solid #050508;
-            border-radius: 50%; 
-            pointer-events: none; 
-            box-shadow: 0 0 12px #00ffcc; 
-        }
-
-        #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
-        #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Game Homepage</title>
+  <style>
+    /* Basic layout styling */
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    .btn {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-    <div id="ui">
-        Objective: Rescue Babies & Survive!<br>
-        Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
-        Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
-        Time Left: <span id="timer">45</span>
-    </div>
+
+  <!-- 1. INTRO SECTION -->
+  <div id="intro-section">
+    <h1>Welcome to the Adventure!</h1>
+    <p>Watch the story or skip right into the action...</p>
     
-    <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
-    <div id="right-stick" class="joystick"><div id="right-knob" class="stick-knob"></div></div>
+    <!-- Skip Intro Button -->
+    <button class="btn" onclick="skipIntro()">Skip Intro</button>
+  </div>
 
-    <div id="status-screen">
-        <div id="status-text">MISSION COMPLETE</div>
-        <button onclick="location.reload()">Play Again</button>
+  <!-- 2. MAIN HOMEPAGE MENU (Hidden until intro is done/skipped) -->
+  <div id="main-menu" class="hidden">
+    <h1>Main Base</h1>
+
+    <!-- Start/Continue Level Button -->
+    <div>
+      <button id="start-level-btn" class="btn">Start Game</button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Home Base / Nursery Button -->
+    <div>
+      <button id="home-base-btn" class="btn" onclick="goToHomeBase()">Go to Home Base / Nursery</button>
+    </div>
+  </div>
+
+  <script>
+    // --- INTRO LOGIC ---
+    function skipIntro() {
+      // Hide the intro text and reveal the main menu
+      document.getElementById('intro-section').classList.add('hidden');
+      document.getElementById('main-menu').classList.remove('hidden');
+    }
+
+    // --- LEVEL PROGRESSION LINK ---
+    // Reads current level from device memory (defaults to 1)
+    let currentLevel = localStorage.getItem('savedGameLevel') || 1;
+    const startBtn = document.getElementById('start-level-btn');
+
+    if (currentLevel > 1) {
+      startBtn.innerText = "Continue Level " + currentLevel;
+    } else {
+      startBtn.innerText = "Start Level 1";
+    }
+
+    startBtn.addEventListener('click', () => {
+      // Directs to level1.html, level2.html, etc.
+      window.location.href = `./level${currentLevel}.html`;
+    });
+
+    // --- HOME BASE / NURSERY LINK ---
+    function goToHomeBase() {
+      // Directs to your separate home base file
+      window.location.href = './homebase.html';
+    }
+  </script>
 
-    <script>
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050508);
-
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 16, 14);
-        camera.lookAt(0, 0, 0);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-        scene.add(ambientLight);
-        
-        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
-        dirLight.position.set(10, 20, 10);
-        scene.add(dirLight);
-
-        // Texture Loader
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setCrossOrigin('anonymous');
-
-        // Load Floor Image Texture
-        const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(8, 8);
-            tex.needsUpdate = true;
-        });
-
-        const floorGeo = new THREE.PlaneGeometry(100, 100);
-        const floorMat = new THREE.MeshStandardMaterial({ 
-            map: floorTexture,
-            color: 0xffffff,
-            roughness: 0.8, 
-            metalness: 0.2 
-        });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.05;
-        scene.add(floor);
-
-        const floorGrid = new THREE.GridHelper(60, 30, 0x00ffcc, 0x1a1a3a);
-        floorGrid.position.y = 0.01;
-        scene.add(floorGrid);
-
-        // Home Base (Fixed & Locked to Scene)
-        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
-        const homeBase = new THREE.Mesh(baseGeo, baseMat);
-        homeBase.position.set(0, 0.02, 10);
-        scene.add(homeBase);
-
-        // Load Wall Image Texture
-        const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(2, 1);
-            tex.needsUpdate = true;
-        });
-
-        const obstacleMat = new THREE.MeshStandardMaterial({ 
-            map: wallTexture,
-            color: 0xffffff,
-            roughness: 0.4, 
-            metalness: 0.5 
-        });
-
-        const wallBoundingBoxes = [];
-
-        function createWall(x, z, width, depth) {
-            const wallGeo = new THREE.BoxGeometry(width, 2.5, depth);
-            const wall = new THREE.Mesh(wallGeo, obstacleMat);
-            wall.position.set(x, 1.25, z);
-            scene.add(wall);
-
-            const edges = new THREE.EdgesGeometry(wallGeo);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
-            line.position.copy(wall.position);
-            scene.add(line);
-
-            const box = new THREE.Box3().setFromObject(wall);
-            wallBoundingBoxes.push(box);
-        }
-
-        // Boundary Walls
-        createWall(0, -22, 44, 2);
-        createWall(-22, 0, 2, 44);
-        createWall(22, 0, 2, 44);
-        createWall(0, 22, 44, 2);
-
-        // Maze Walls
-        createWall(-8, -10, 2, 16);
-        createWall(8, -10, 2, 16);
-        createWall(0, -2, 14, 2);
-        createWall(-12, 6, 12, 2);
-        createWall(12, 6, 12, 2);
-
-        // Baby Containment Cages
-        const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
-        const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
-        
-        const room1 = new THREE.Mesh(roomGeo, roomMat);
-        room1.position.set(-14, 1.25, -14);
-        scene.add(room1);
-
-        const room2 = new THREE.Mesh(roomGeo, roomMat);
-        room2.position.set(14, 1.25, -14);
-        scene.add(room2);
-
-        const loader = new THREE.GLTFLoader();
-        const rooms = [];
-
-        const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
-        const fallbackBabyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8 });
-
-        function createFallbackBaby(x, z) {
-            const mesh = new THREE.Mesh(fallbackBabyGeo, fallbackBabyMat);
-            mesh.position.set(x, 0.6, z);
-            scene.add(mesh);
-            return mesh;
-        }
-
-        let babyModelTemplate = null;
-
-        loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
-            babyModelTemplate = gltf.scene;
-            initRoomsWithModels();
-        }, undefined, function (error) {
-            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false });
-            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false });
-        });
-
-        function initRoomsWithModels() {
-            if (!babyModelTemplate) return;
-            
-            const babyModel1 = babyModelTemplate.clone();
-            babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-14, 0.3, -14);
-            scene.add(babyModel1);
-
-            const babyModel2 = babyModelTemplate.clone();
-            babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(14, 0.3, -14);
-            scene.add(babyModel2);
-
-            rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
-            rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
-        }
-
-        // =========================================================
-        // 🔔 MAGIC BELL HAZARD
-        // =========================================================
-        const bellGroup = new THREE.Group();
-        bellGroup.position.set(0, 0.75, -8);
-        scene.add(bellGroup);
-
-        const fallbackBellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
-        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
-        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
-        bellGroup.add(fallbackBell);
-
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
-            bellGroup.remove(fallbackBell);
-            const bellModel = gltf.scene;
-            bellModel.scale.set(0.8, 0.8, 0.8);
-            bellGroup.add(bellModel);
-        }, undefined, function (error) {
-            console.error("Bell model load error:", error);
-        });
-
-        let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
-
-        // =========================================================
-        // 👾 ENEMY SHOOTERS (LIFTED OFF FLOOR)
-        // =========================================================
-        const enemies = [];
-        const bullets = [];
-        const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
-        const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
-
-        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
-
-        for (let i = 0; i < 2; i++) {
-            const enemyGroup = new THREE.Group();
-            // Raised Y position to 1.8 so they sit flush on the floor
-            enemyGroup.position.set(i === 0 ? -15 : 15, 1.8, -6);
-            scene.add(enemyGroup);
-
-            const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
-            enemyGroup.add(fallbackEnemy);
-
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
-                enemyGroup.remove(fallbackEnemy);
-                const humanModel = gltf.scene;
-                humanModel.position.y = 0.5; // Extra vertical nudge
-                humanModel.scale.set(0.8, 0.8, 0.8);
-                enemyGroup.add(humanModel);
-            }, undefined, function (error) {
-                console.error("Human Walker load error:", error);
-            });
-
-            enemies.push({ 
-                mesh: enemyGroup, 
-                speedX: (Math.random() - 0.5) * 0.04, 
-                speedZ: (Math.random() - 0.5) * 0.04,
-                shootCooldown: Math.random() * 60 + 30 
-            });
-        }
-
-        // =========================================================
-        // 🐌 SNAIL GROUP (MAIN CHARACTER)
-        // =========================================================
-        const snailGroup = new THREE.Group();
-        scene.add(snailGroup);
-        snailGroup.position.set(0, 0, 10);
-
-        const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
-        const shieldMat = new THREE.MeshPhysicalMaterial({ 
-            color: 0x00ffff, 
-            transparent: true, 
-            opacity: 0.45, 
-            roughness: 0.1, 
-            metalness: 0.9,
-            clearcoat: 1.0, 
-            clearcoatRoughness: 0.1,
-            emissive: 0x00aaff,
-            emissiveIntensity: 0.5
-        });
-        const reflectiveShield = new THREE.Mesh(shieldGeo, shieldMat);
-        reflectiveShield.position.y = 0.8;
-        snailGroup.add(reflectiveShield);
-
-        const fallbackMainGeo = new THREE.BoxGeometry(1, 1, 1);
-        const fallbackMainMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc });
-        const fallbackMain = new THREE.Mesh(fallbackMainGeo, fallbackMainMat);
-        fallbackMain.position.y = 0.5;
-        snailGroup.add(fallbackMain);
-
-        loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
-            snailGroup.remove(fallbackMain);
-            const character = gltf.scene;
-            character.scale.set(0.8, 0.8, 0.8);
-            character.position.y = 0.9; 
-            snailGroup.add(character);
-        }, undefined, function (error) {});
-
-        // Game State
-        let moveX = 0, moveZ = 0;
-        let isShieldActive = false;
-        let score = 0;
-        let health = 100;
-        let carriedBabies = [];
-        let timeLeft = 45;
-        let freezeTimer = 0;
-        let gameOver = false;
-
-        setInterval(() => {
-            if (!gameOver && timeLeft > 0) {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-                if (timeLeft === 0 && score < 2) {
-                    endGame("TIME UP - MISSION FAILED");
-                }
-            }
-        }, 1000);
-
-        function setupJoystick(stickId, knobId, callback) {
-            const stick = document.getElementById(stickId);
-            const knob = document.getElementById(knobId);
-            const maxDist = 35;
-            let activeTouchId = null;
-
-            stick.addEventListener('touchstart', (e) => {
-                const touch = e.changedTouches[0];
-                activeTouchId = touch.identifier;
-                updateStick(touch);
-            });
-            window.addEventListener('touchmove', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === activeTouchId) updateStick(e.changedTouches[i]);
-                }
-            });
-            window.addEventListener('touchend', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === activeTouchId) {
-                        activeTouchId = null;
-                        knob.style.transform = `translate(0px, 0px)`;
-                        callback(0, 0);
-                    }
-                }
-            });
-            function updateStick(touch) {
-                const r = stick.getBoundingClientRect();
-                let x = touch.clientX - r.left - (r.width / 2);
-                let y = touch.clientY - r.top - (r.height / 2);
-                const dist = Math.sqrt(x * x + y * y);
-                if (dist > maxDist) { x = (x / dist) * maxDist; y = (y / dist) * maxDist; }
-                knob.style.transform = `translate(${x}px, ${y}px)`;
-                callback(x / maxDist, y / maxDist);
-            }
-        }
-
-        setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
-        
-        setupJoystick('right-stick', 'right-knob', (x, y) => {
-            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
-                isShieldActive = true;
-                reflectiveShield.scale.set(1.3, 1.3, 1.3);
-                shieldMat.emissiveIntensity = 1.0;
-            } else {
-                isShieldActive = false;
-                reflectiveShield.scale.set(1.0, 1.0, 1.0);
-                shieldMat.emissiveIntensity = 0.4;
-            }
-        });
-
-        function updateHealthBar() {
-            const fill = document.getElementById('health-fill');
-            fill.style.width = Math.max(0, health) + '%';
-            fill.style.background = health < 30 ? '#ff3300' : '#00ffcc';
-        }
-
-        function endGame(message) {
-            gameOver = true;
-            document.getElementById('status-text').innerText = message;
-            document.getElementById('status-screen').style.display = 'flex';
-        }
-
-        function canMoveTo(nextX, nextZ) {
-            const playerBox = new THREE.Box3(
-                new THREE.Vector3(nextX - 0.7, 0, nextZ - 0.7),
-                new THREE.Vector3(nextX + 0.7, 2, nextZ + 0.7)
-            );
-            for (let box of wallBoundingBoxes) {
-                if (playerBox.intersectsBox(box)) return false;
-            }
-            return true;
-        }
-
-        // Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            if (gameOver) return;
-
-            // Handle Freeze State
-            if (freezeTimer > 0) {
-                freezeTimer -= 0.016;
-                document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
-                document.getElementById('player-status').style.color = "#ffcc00";
-            } else {
-                document.getElementById('player-status').innerText = isShieldActive ? "SHIELD ACTIVE" : "Active";
-                document.getElementById('player-status').style.color = isShieldActive ? "#00ffff" : "#00ffcc";
-
-                let nextX = snailGroup.position.x + (moveX * 0.1);
-                let nextZ = snailGroup.position.z + (moveZ * 0.1);
-
-                if (canMoveTo(nextX, snailGroup.position.z)) snailGroup.position.x = nextX;
-                if (canMoveTo(snailGroup.position.x, nextZ)) snailGroup.position.z = nextZ;
-
-                if (moveX !== 0 || moveZ !== 0) {
-                    snailGroup.rotation.y = Math.atan2(moveX, moveZ);
-                }
-            }
-
-            reflectiveShield.rotation.y += 0.02;
-
-            // Move Magic Bell Hazard
-            bellGroup.position.add(bellVelocity);
-            if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
-            if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
-            bellGroup.rotation.y += 0.03;
-
-            // Check Bell Freeze Collision
-            if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
-                freezeTimer = 5.0; 
-            }
-
-            // Move Enemy Shooters & Fire Bullets
-            enemies.forEach(en => {
-                en.mesh.position.x += en.speedX;
-                en.mesh.position.z += en.speedZ;
-                if (Math.abs(en.mesh.position.x) > 18) en.speedX *= -1;
-                if (Math.abs(en.mesh.position.z) > 18) en.speedZ *= -1;
-
-                en.shootCooldown--;
-                if (en.shootCooldown <= 0) {
-                    en.shootCooldown = 90 + Math.random() * 60;
-                    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
-                    bullet.position.copy(en.mesh.position);
-                    bullet.position.y = 1.0;
-                    const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
-                    scene.add(bullet);
-                    bullets.push({ mesh: bullet, dir: dir, speed: 0.14 });
-                }
-            });
-
-            // Bullets Collision
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, b.speed);
-
-                let bulletBox = new THREE.Box3().setFromObject(b.mesh);
-                let hitWall = false;
-
-                for (let wallBox of wallBoundingBoxes) {
-                    if (bulletBox.intersectsBox(wallBox)) {
-                        b.dir.negate();
-                        hitWall = true;
-                        break;
-                    }
-                }
-
-                if (hitWall) continue;
-
-                let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
-
-                if (isShieldActive && distToPlayer < 2.0) {
-                    b.dir.negate();
-                    b.speed *= 1.2;
-                    b.mesh.material.color.setHex(0x00ffff);
-                    continue;
-                } 
-                else if (!isShieldActive && distToPlayer < 1.2) {
-                    health = Math.max(0, health - 15);
-                    updateHealthBar();
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                    if (health <= 0) endGame("GAME OVER - SHOT DOWN");
-                    continue;
-                }
-
-                if (Math.abs(b.mesh.position.x) > 25 || Math.abs(b.mesh.position.z) > 25) {
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                }
-            }
-
-            // Room Rescue
-            rooms.forEach(room => {
-                if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
-                    room.rescued = true;
-                    room.mesh.visible = false;
-                    carriedBabies.push(room.babyMesh);
-                }
-            });
-
-            // Rescued baby trail
-            for (let i = 0; i < carriedBabies.length; i++) {
-                let baby = carriedBabies[i];
-                let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
-                baby.position.lerp(targetPos, 0.1);
-                baby.position.y = 0.3;
-            }
-
-            // Home Base Drop-off
-            if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
-                score += carriedBabies.length;
-                document.getElementById('score').innerText = score;
-                
-                carriedBabies.forEach(baby => scene.remove(baby));
-                carriedBabies = [];
-
-                if (score >= 2) {
-                    endGame("LEVEL 1 VICTORY!");
-                }
-            }
-
-            // Camera Tracking
-            camera.position.x = snailGroup.position.x;
-            camera.position.z = snailGroup.position.z + 14;
-            camera.lookAt(snailGroup.position.x, snailGroup.position.y, snailGroup.position.z);
-
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
 </body>
 </html>
