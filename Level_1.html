@@ -110,12 +110,28 @@
         floorGrid.position.y = 0.01;
         scene.add(floorGrid);
 
-        // Home Base (Fixed & Locked to Scene)
-        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
-        const homeBase = new THREE.Mesh(baseGeo, baseMat);
-        homeBase.position.set(0, 0.02, 10);
-        scene.add(homeBase);
+        // =========================================================
+// 🏠 3D HOME BASE MODEL
+// =========================================================
+const homeBaseGroup = new THREE.Group();
+homeBaseGroup.position.set(0, 0.02, 10);
+scene.add(homeBaseGroup);
+
+// Fallback box while the 3D model loads
+const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
+const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
+const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
+homeBaseGroup.add(fallbackBase);
+
+// Load your 3D Home Base GLB model
+loader.load('YOUR_HOME_BASE_MODEL.glb', function (gltf) {
+    homeBaseGroup.remove(fallbackBase); // Remove fallback once loaded
+    const baseModel = gltf.scene;
+    baseModel.scale.set(1.0, 1.0, 1.0); // Adjust scale if needed
+    homeBaseGroup.add(baseModel);
+}, undefined, function (error) {
+    console.error("Home Base model load error:", error);
+});
 
         // Load Wall Image Texture
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
@@ -520,17 +536,17 @@
             }
 
             // Home Base Drop-off
-            if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
-                score += carriedBabies.length;
-                document.getElementById('score').innerText = score;
-                
-                carriedBabies.forEach(baby => scene.remove(baby));
-                carriedBabies = [];
+if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
+    score += carriedBabies.length;
+    document.getElementById('score').innerText = score;
+    
+    carriedBabies.forEach(baby => scene.remove(baby));
+    carriedBabies = [];
 
-                if (score >= 2) {
-                    endGame("LEVEL 1 VICTORY!");
-                }
-            }
+    if (score >= 2) {
+        endGame("LEVEL 1 VICTORY!");
+    }
+}
 
             // Camera Tracking
             camera.position.x = snailGroup.position.x;
