@@ -44,7 +44,7 @@
 </head>
 <body>
     <div id="ui">
-        Objective: Rescue Babies & Survive!<br>
+        Objective: Rescue Babies &amp; Survive!<br>
         Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
         Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
         Time Left: <span id="timer">45</span>
@@ -173,7 +173,6 @@
         scene.add(room2);
 
         const loader = new THREE.GLTFLoader();
-        const rooms = [];
 
         const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
         const fallbackBabyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8 });
@@ -185,59 +184,93 @@
             return mesh;
         }
 
-        let babyModelTemplate = null;
+        // Initialize rooms array with immediate fallback objects
+        const rooms = [
+            { mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false },
+            { mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false }
+        ];
 
         loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
-            babyModelTemplate = gltf.scene;
-            initRoomsWithModels();
+            const template = gltf.scene;
+            
+            // Swap out fallbacks if models load successfully
+            if (rooms[0].babyMesh) scene.remove(rooms[0].babyMesh);
+            if (rooms[1].babyMesh) scene.remove(rooms[1].babyMesh);
+
+            const b1 = template.clone();
+            b1.scale.set(0.5, 0.5, 0.5);
+            b1.position.set(-14, 0.3, -14);
+            scene.add(b1);
+            rooms[0].babyMesh = b1;
+
+            const b2 = template.clone();
+            b2.scale.set(0.5, 0.5, 0.5);
+            b2.position.set(14, 0.3, -14);
+            scene.add(b2);
+            rooms[1].babyMesh = b2;
         }, undefined, function (error) {
-            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false });
-            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false });
+            console.error("Galactic Snail model load error, using fallbacks:", error);
         });
 
-        function initRoomsWithModels() {
-            if (!babyModelTemplate) return;
-            
-            const babyModel1 = babyModelTemplate.clone();
-            babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-14, 0.3, -14);
-            scene.add(babyModel1);
+        // --- 3D MAGIC BELL HAZARD SETUP ---
+        const bellGroup = new THREE.Group();
+        bellGroup.position.set(0, 1, -10);
+        scene.add(bellGroup);
 
-            const babyModel2 = babyModelTemplate.clone();
-            babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(14, 0.3, -14);
-            scene.add(babyModel2);
+        const fallbackBellGeo = new THREE.SphereGeometry(0.8, 16, 16);
+        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xaa8800 });
+        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
+        bellGroup.add(fallbackBell);
 
-            rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
-            rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
-        }
+        const bellVelocity = new THREE.Vector3(0.08, 0, 0.05);
 
-        // 3D Magic Bell Hazard
-        // --- 3D MAGIC BELL HAZARD ---
-loader.load('Meshy_AI_Neon_Liberty_Bell_1785740945_image-to-3d-texture_compressed.glb', function (gltf) {
-    bellGroup.remove(fallbackBell);
-    const bellModel = gltf.scene;
-    bellModel.scale.set(0.8, 0.8, 0.8);
-    bellGroup.add(bellModel);
-}, undefined, function (error) {
-    console.error("Bell load error:", error);
-});
+        loader.load('Meshy_AI_Neon_Liberty_Bell_1785740945_image-to-3d-texture_compressed.glb', function (gltf) {
+            bellGroup.remove(fallbackBell);
+            const bellModel = gltf.scene;
+            bellModel.scale.set(0.8, 0.8, 0.8);
+            bellGroup.add(bellModel);
+        }, undefined, function (error) {
+            console.error("Bell load error:", error);
+        });
 
-// --- 3D HUMAN WALKERS ---
-loader.load('Meshy_AI_Nebula_Vanguard_1785730919_image-to-3d-texture_compressed.glb', function (gltf) {
-    enemyGroup.remove(fallbackEnemy);
-    const humanModel = gltf.scene;
-    humanModel.scale.set(0.8, 0.8, 0.8);
-    enemyGroup.add(humanModel);
-}, undefined, function (error) {
-    console.error("Human Walker load error:", error);
-});
+        // --- 3D HUMAN WALKERS & BULLETS SETUP ---
+        const bullets = [];
+        const bulletGeo = new THREE.SphereGeometry(0.2, 8, 8);
+        const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055 });
+
+        const enemies = [];
+        const enemyGroup = new THREE.Group();
+        enemyGroup.position.set(-10, 0, 5);
+        scene.add(enemyGroup);
+
+        const fallbackEnemyGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.8);
+        const fallbackEnemyMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const fallbackEnemy = new THREE.Mesh(fallbackEnemyGeo, fallbackEnemyMat);
+        fallbackEnemy.position.y = 0.9;
+        enemyGroup.add(fallbackEnemy);
+
+        enemies.push({
+            group: enemyGroup,
+            speedX: 0.06,
+            speedZ: 0.04,
+            shootCooldown: 60
+        });
+
+        loader.load('Meshy_AI_Nebula_Vanguard_1785730919_image-to-3d-texture_compressed.glb', function (gltf) {
+            enemyGroup.remove(fallbackEnemy);
+            const humanModel = gltf.scene;
+            humanModel.scale.set(0.8, 0.8, 0.8);
+            enemyGroup.add(humanModel);
+        }, undefined, function (error) {
+            console.error("Human Walker load error:", error);
+        });
+
         // Main Character Snail Group
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
         snailGroup.position.set(0, 0, 10);
 
-        // Dynamic Reflective Shield
+        // Shield
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
             color: 0x00ffff, 
@@ -261,14 +294,15 @@ loader.load('Meshy_AI_Nebula_Vanguard_1785730919_image-to-3d-texture_compressed.
         fallbackMain.position.y = 0.5;
         snailGroup.add(fallbackMain);
 
-        // Load Astral Knight Snail
         loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             snailGroup.remove(fallbackMain);
             const character = gltf.scene;
             character.scale.set(0.8, 0.8, 0.8);
             character.position.y = 0.9; 
             snailGroup.add(character);
-        }, undefined, function (error) {});
+        }, undefined, function (error) {
+            console.error("Astral Knight model load error:", error);
+        });
 
         // Game State
         let moveX = 0, moveZ = 0;
@@ -427,7 +461,7 @@ loader.load('Meshy_AI_Nebula_Vanguard_1785730919_image-to-3d-texture_compressed.
                     bullets.push({ mesh: bullet, dir: dir, speed: 0.14 });
                 }
             });
-  // Bullets Collision Logic
+// Bullets Collision Logic
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
