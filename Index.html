@@ -12,34 +12,32 @@
         #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
 
         .joystick { 
-    position: absolute; 
-    bottom: 30px; 
-    width: 120px; 
-    height: 120px; 
-    /* Solid dark backdrop with neon border so it stands out over wood */
-    background: rgba(5, 5, 8, 0.75); 
-    border: 3px solid #00ffcc; 
-    border-radius: 50%; 
-    pointer-events: auto; 
-    box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
-}
+            position: absolute; 
+            bottom: 30px; 
+            width: 120px; 
+            height: 120px; 
+            background: rgba(5, 5, 8, 0.75); 
+            border: 3px solid #00ffcc; 
+            border-radius: 50%; 
+            pointer-events: auto; 
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
+        }
 
-#left-stick { left: 30px; }
-#right-stick { right: 30px; }
+        #left-stick { left: 30px; }
+        #right-stick { right: 30px; }
 
-.stick-knob { 
-    position: absolute; 
-    top: 35px; 
-    left: 35px; 
-    width: 50px; 
-    height: 50px; 
-    /* High contrast cyan knob with dark outline */
-    background: #00ffcc; 
-    border: 2px solid #050508;
-    border-radius: 50%; 
-    pointer-events: none; 
-    box-shadow: 0 0 12px #00ffcc; 
-}
+        .stick-knob { 
+            position: absolute; 
+            top: 35px; 
+            left: 35px; 
+            width: 50px; 
+            height: 50px; 
+            background: #00ffcc; 
+            border: 2px solid #050508;
+            border-radius: 50%; 
+            pointer-events: none; 
+            box-shadow: 0 0 12px #00ffcc; 
+        }
 
         #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
         #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
@@ -84,7 +82,7 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // Texture Loader with CORS enabling
+        // Texture Loader
         const textureLoader = new THREE.TextureLoader();
         textureLoader.setCrossOrigin('anonymous');
 
@@ -99,7 +97,7 @@
         const floorGeo = new THREE.PlaneGeometry(100, 100);
         const floorMat = new THREE.MeshStandardMaterial({ 
             map: floorTexture,
-            color: 0xffffff, // White neutral base so texture colors render accurately
+            color: 0xffffff,
             roughness: 0.8, 
             metalness: 0.2 
         });
@@ -129,7 +127,7 @@
 
         const obstacleMat = new THREE.MeshStandardMaterial({ 
             map: wallTexture,
-            color: 0xffffff, // White neutral base so texture colors render accurately
+            color: 0xffffff,
             roughness: 0.4, 
             metalness: 0.5 
         });
@@ -142,18 +140,16 @@
             wall.position.set(x, 1.25, z);
             scene.add(wall);
 
-            // Neon cyan glowing frame around wall tops
             const edges = new THREE.EdgesGeometry(wallGeo);
             const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
             line.position.copy(wall.position);
             scene.add(line);
 
-            // Collision bounds
             const box = new THREE.Box3().setFromObject(wall);
             wallBoundingBoxes.push(box);
         }
 
-        // Outer Boundary Walls
+        // Boundary Walls
         createWall(0, -22, 44, 2);
         createWall(-22, 0, 2, 44);
         createWall(22, 0, 2, 44);
@@ -166,7 +162,7 @@
         createWall(-12, 6, 12, 2);
         createWall(12, 6, 12, 2);
 
-        // Baby Rooms / Containment Cages
+        // Baby Containment Cages
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
         
@@ -218,39 +214,71 @@
             rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
         }
 
-        // Magic Bell Hazard
-        const bellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
-        const bellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
-        const magicBell = new THREE.Mesh(bellGeo, bellMat);
-        magicBell.position.set(0, 0.75, -8);
-        scene.add(magicBell);
+        // =========================================================
+        // 🔔 MAGIC BELL HAZARD (GROUP WITH LOADER & FALLBACK)
+        // =========================================================
+        const bellGroup = new THREE.Group();
+        bellGroup.position.set(0, 0.75, -8);
+        scene.add(bellGroup);
+
+        const fallbackBellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
+        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
+        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
+        bellGroup.add(fallbackBell);
+
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
+            bellGroup.remove(fallbackBell);
+            const bellModel = gltf.scene;
+            bellModel.scale.set(0.8, 0.8, 0.8);
+            bellGroup.add(bellModel);
+        }, undefined, function (error) {
+            console.error("Bell model load error:", error);
+        });
+
         let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
-        // Enemy Shooters & Projectiles
-        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
+        // =========================================================
+        // 👾 ENEMY SHOOTERS (GROUPS WITH LOADER & FALLBACKS)
+        // =========================================================
         const enemies = [];
         const bullets = [];
         const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
         const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
 
-        for(let i = 0; i < 2; i++) {
-            const enemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
-            enemy.position.set(i === 0 ? -15 : 15, 0.9, -6);
-            scene.add(enemy);
+        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
+
+        for (let i = 0; i < 2; i++) {
+            const enemyGroup = new THREE.Group();
+            enemyGroup.position.set(i === 0 ? -15 : 15, 0.9, -6);
+            scene.add(enemyGroup);
+
+            const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
+            enemyGroup.add(fallbackEnemy);
+
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
+                enemyGroup.remove(fallbackEnemy);
+                const humanModel = gltf.scene;
+                humanModel.scale.set(0.8, 0.8, 0.8);
+                enemyGroup.add(humanModel);
+            }, undefined, function (error) {
+                console.error("Human Walker load error:", error);
+            });
+
             enemies.push({ 
-                mesh: enemy, 
+                mesh: enemyGroup, 
                 speedX: (Math.random() - 0.5) * 0.04, 
                 speedZ: (Math.random() - 0.5) * 0.04,
                 shootCooldown: Math.random() * 60 + 30 
             });
         }
 
-        // Snail Group (Main Character)
+        // =========================================================
+        // 🐌 SNAIL GROUP (MAIN CHARACTER)
+        // =========================================================
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
         snailGroup.position.set(0, 0, 10);
 
-        // Dynamic Reflective Shield
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
             color: 0x00ffff, 
@@ -267,14 +295,12 @@
         reflectiveShield.position.y = 0.8;
         snailGroup.add(reflectiveShield);
 
-        // Fallback main character shape
         const fallbackMainGeo = new THREE.BoxGeometry(1, 1, 1);
         const fallbackMainMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc });
         const fallbackMain = new THREE.Mesh(fallbackMainGeo, fallbackMainMat);
         fallbackMain.position.y = 0.5;
         snailGroup.add(fallbackMain);
 
-        // Load Main Astral Knight Snail Model
         loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             snailGroup.remove(fallbackMain);
             const character = gltf.scene;
@@ -341,7 +367,6 @@
 
         setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
         
-        // Right stick activates reflective shield
         setupJoystick('right-stick', 'right-knob', (x, y) => {
             if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
                 isShieldActive = true;
@@ -366,7 +391,6 @@
             document.getElementById('status-screen').style.display = 'flex';
         }
 
-        // Wall collision check
         function canMoveTo(nextX, nextZ) {
             const playerBox = new THREE.Box3(
                 new THREE.Vector3(nextX - 0.7, 0, nextZ - 0.7),
@@ -406,13 +430,13 @@
             reflectiveShield.rotation.y += 0.02;
 
             // Move Magic Bell Hazard
-            magicBell.position.add(bellVelocity);
-            if (Math.abs(magicBell.position.x) > 18) bellVelocity.x *= -1;
-            if (Math.abs(magicBell.position.z) > 18) bellVelocity.z *= -1;
-            magicBell.rotation.y += 0.03;
+            bellGroup.position.add(bellVelocity);
+            if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
+            if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
+            bellGroup.rotation.y += 0.03;
 
             // Check Bell Freeze Collision
-            if (freezeTimer <= 0 && snailGroup.position.distanceTo(magicBell.position) < 1.8) {
+            if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
 
@@ -435,7 +459,7 @@
                 }
             });
 
-            // Bullets Collision, Reflective Bounce & Wall Bouncing Mechanics
+            // Bullets Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -443,10 +467,22 @@
                 let bulletBox = new THREE.Box3().setFromObject(b.mesh);
                 let hitWall = false;
 
-                // Check wall bounce collisions
                 for (let wallBox of wallBoundingBoxes) {
                     if (bulletBox.intersectsBox(wallBox)) {
-                        b.dir.negate(); // Reverse bullet direction off walls
+                        b.dir.negate();
+                        hitWall = true;
+                        break;
+                    }  // Bullets Collision
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.mesh.position.addScaledVector(b.dir, b.speed);
+
+                let bulletBox = new THREE.Box3().setFromObject(b.mesh);
+                let hitWall = false;
+
+                for (let wallBox of wallBoundingBoxes) {
+                    if (bulletBox.intersectsBox(wallBox)) {
+                        b.dir.negate();
                         hitWall = true;
                         break;
                     }
@@ -456,14 +492,12 @@
 
                 let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
 
-                // If Shield is active, deflect bullets back
                 if (isShieldActive && distToPlayer < 2.0) {
                     b.dir.negate();
                     b.speed *= 1.2;
                     b.mesh.material.color.setHex(0x00ffff);
                     continue;
                 } 
-                // Direct Hit without Shield
                 else if (!isShieldActive && distToPlayer < 1.2) {
                     health = Math.max(0, health - 15);
                     updateHealthBar();
@@ -479,7 +513,7 @@
                 }
             }
 
-            // Room Rescue & Following Mechanics
+            // Room Rescue
             rooms.forEach(room => {
                 if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
@@ -496,7 +530,7 @@
                 baby.position.y = 0.3;
             }
 
-            // Home Base Drop-off Check
+            // Home Base Drop-off
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBase.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
