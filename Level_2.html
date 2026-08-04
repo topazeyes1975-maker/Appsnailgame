@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Armored Snail: Level 1 Survival</title>
+    <title>Armored Snail: Level 2 Maze</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; }
         #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 15px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.5; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
@@ -45,17 +45,17 @@
 </head>
 <body>
     <div id="ui">
-        Objective: Rescue Babies & Survive!<br>
+        Objective: Level 2 - Rescue Babies & Escape!<br>
         Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
         Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
-        Time Left: <span id="timer">45</span>
+        Time Left: <span id="timer">60</span>
     </div>
     
     <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
     <div id="right-stick" class="joystick"><div id="right-knob" class="stick-knob"></div></div>
 
     <div id="status-screen">
-        <div id="status-text">MISSION COMPLETE</div>
+        <div id="status-text">LEVEL 2 COMPLETE</div>
         <button onclick="location.reload()">Play Again</button>
     </div>
 
@@ -74,8 +74,10 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // GLTF LOADER INITIALIZED FIRST
+        // INITIALIZE LOADERS FIRST
         const loader = new THREE.GLTFLoader();
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin('anonymous');
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -84,10 +86,6 @@
         const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
-
-        // Texture Loader
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setCrossOrigin('anonymous');
 
         // Load Floor Image Texture
         const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
@@ -114,10 +112,10 @@
         scene.add(floorGrid);
 
         // =========================================================
-        // 🏠 3D HOME BASE MODEL
+        // 🏠 3D HOME BASE MODEL (Bottom-Left Entrance Area)
         // =========================================================
         const homeBaseGroup = new THREE.Group();
-        homeBaseGroup.position.set(1, 3, 1);
+        homeBaseGroup.position.set(-18, 0.02, 18);
         scene.add(homeBaseGroup);
 
         const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
@@ -125,10 +123,11 @@
         const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
         homeBaseGroup.add(fallbackBase);
 
-        loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
+        loader.load('Meshy_AI_Gigantic_Tardis_1785677000_compressed.glb', function (gltf) {
             homeBaseGroup.remove(fallbackBase);
             const baseModel = gltf.scene;
-            baseModel.scale.set(3.0, 3.0, 3.0);
+            baseModel.scale.set(1.0, 1.0, 1.0);
+            baseModel.position.y = 1.5;
             homeBaseGroup.add(baseModel);
         }, undefined, function (error) {
             console.error("Home Base model load error:", error);
@@ -149,101 +148,63 @@
             metalness: 0.5 
         });
 
-                // =========================================================
-        // 🧱 LEVEL 2 BOUNDARY WALLS
-        // =========================================================
-        // Outer Frame with Top-Right Exit and Bottom-Left Entrance
-        createWall(0, -22, 44, 2);             // Top Wall (Solid)
-        createWall(-22, -2, 2, 40);            // Left Wall (Leaves gap at bottom-left start x=-22, z=20)
-        createWall(20, 2, 2, 40);              // Right Outer Wall (Leaves gap at top-right exit x=22, z=-20)
-        createWall(22, -10, 2, 20);             // Right Inner Corridor Wall
-        createWall(0, 22, 44, 2);              // Bottom Wall (Solid base)
+        const wallBoundingBoxes = [];
+
+        function createWall(x, z, width, depth) {
+            const wallGeo = new THREE.BoxGeometry(width, 2.5, depth);
+            const wall = new THREE.Mesh(wallGeo, obstacleMat);
+            wall.position.set(x, 1.25, z);
+            scene.add(wall);
+
+            const edges = new THREE.EdgesGeometry(wallGeo);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
+            line.position.copy(wall.position);
+            scene.add(line);
+
+            const box = new THREE.Box3().setFromObject(wall);
+            wallBoundingBoxes.push(box);
+        }
 
         // =========================================================
-        // 🧩 LEVEL 2 MAZE LAYOUT (Derived from diagram)
+        // 🧱 LEVEL 2 BOUNDARY & MAZE WALLS
         // =========================================================
-        
-        // --- TOP-LEFT ALCOVE (Baby #1 Location) ---
-        createWall(-12, -18, 16, 0.8);         // Upper wall of top-left chamber
-        createWall(-12, -14, 12, 0.8);         // Lower wall of top-left chamber
-        createWall(-5, -16, 0.8, 4);           // Dead-end back wall for top-left baby
+        // Outer Boundaries
+        createWall(0, -22, 44, 2);             // Top Wall
+        createWall(-22, -2, 2, 40);            // Left Wall (Leaves entrance gap at bottom-left)
+        createWall(22, 2, 2, 40);              // Right Outer Wall (Leaves top-right exit gap)
+        createWall(20, -10, 2, 20);            // Right Inner Corridor
+        createWall(0, 22, 44, 2);              // Bottom Wall
 
-        // --- CENTRAL & MID MAZE PATHS ---
-        createWall(-10, -8, 14, 0.8);          // Upper-mid horizontal divider
-        createWall(2, -14, 0.8, 10);           // Vertical chute guiding towards exit
-        createWall(6, -10, 8, 0.8);            // Z-shaped corridor top segment
-        createWall(10, -6, 0.8, 8);            // Z-shaped corridor right segment
-        createWall(4, -2, 12, 0.8);            // Central horizontal bridge
-        
-        // --- RED 'X' BARRIER (Seals bottom-center path) ---
-        createWall(0, 10, 0.8, 16);            // Long central vertical divider (seals bottom path at Red X)
-        createWall(0, 18, 4, 0.8);             // Red X barrier extension joining bottom boundary
-
-        // --- BOTTOM-LEFT STARTING CORRIDOR ---
-        createWall(-16, 6, 0.8, 12);           // Vertical wall right of starting zone
-        createWall(-12, 12, 8, 0.8);           // Horizontal barrier above entrance
-        createWall(-14, 16, 8, 0.8);           // Lower starting guide wall
-
-        // --- BOTTOM-RIGHT ALCOVE (Baby #2 Location) ---
-        createWall(10, 6, 12, 0.8);            // Top wall of bottom-right dead end
-        createWall(4, 12, 0.8, 12);            // Left inner wall forming baby pocket
-        createWall(11, 14, 8, 0.8);            // Bottom inner hook wall creating dead end
+        // Maze Interior
+        createWall(-12, -18, 16, 0.8);         // Top-left chamber top wall
+        createWall(-12, -14, 12, 0.8);         // Top-left chamber bottom wall
+        createWall(-5, -16, 0.8, 4);           // Top-left chamber back wall
+        createWall(-10, -8, 14, 0.8);          // Upper-mid horizontal
+        createWall(2, -14, 0.8, 10);           // Exit chute vertical
+        createWall(6, -10, 8, 0.8);            // Z-corridor top
+        createWall(10, -6, 0.8, 8);            // Z-corridor right
+        createWall(4, -2, 12, 0.8);            // Central bridge
+        createWall(0, 10, 0.8, 16);            // Red X divider
+        createWall(0, 18, 4, 0.8);             // Red X barrier base
+        createWall(-16, 6, 0.8, 12);           // Entrance right wall
+        createWall(-12, 12, 8, 0.8);           // Entrance top wall
+        createWall(-14, 16, 8, 0.8);           // Entrance bottom guide
+        createWall(10, 6, 12, 0.8);            // Bottom-right top wall
+        createWall(4, 12, 0.8, 12);            // Bottom-right inner left
+        createWall(11, 14, 8, 0.8);            // Bottom-right inner hook
 
         // =========================================================
-        // 👶 BABY SPANNS (Placed inside dead-end chambers)
+        // 👶 BABIES (Placed inside dead ends)
         // =========================================================
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
         
-        // Cage #1: Top-Left Dead End (x=-16, z=-16)
         const room1 = new THREE.Mesh(roomGeo, roomMat);
         room1.position.set(-16, 1.25, -16);
         scene.add(room1);
 
-        // Cage #2: Bottom-Right Dead End (x=12, z=10)
         const room2 = new THREE.Mesh(roomGeo, roomMat);
         room2.position.set(12, 1.25, 10);
-        scene.add(room2);
-
-        const rooms = [];
-
-        function createFallbackBaby(x, z) {
-            const mesh = new THREE.Mesh(fallbackBabyGeo, fallbackBabyMat);
-            mesh.position.set(x, 0.6, z);
-            scene.add(mesh);
-            return mesh;
-        }
-
-        function initRoomsWithModels() {
-            if (!babyModelTemplate) return;
-            
-            // Baby 1 in Top-Left Dead End
-            const babyModel1 = babyModelTemplate.clone();
-            babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-16, 0.3, -16);
-            scene.add(babyModel1);
-
-            // Baby 2 in Bottom-Right Dead End
-            const babyModel2 = babyModelTemplate.clone();
-            babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(12, 0.3, 10);
-            scene.add(babyModel2);
-
-            rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
-            rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
-        }
-
-
-        // Baby Containment Cages
-        const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
-        const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
-        
-        const room1 = new THREE.Mesh(roomGeo, roomMat);
-        room1.position.set(-14, 1.25, -14);
-        scene.add(room1);
-
-        const room2 = new THREE.Mesh(roomGeo, roomMat);
-        room2.position.set(14, 1.25, -14);
         scene.add(room2);
 
         const rooms = [];
@@ -264,8 +225,8 @@
             babyModelTemplate = gltf.scene;
             initRoomsWithModels();
         }, undefined, function (error) {
-            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-14, -14), rescued: false });
-            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(14, -14), rescued: false });
+            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-16, -16), rescued: false });
+            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(12, 10), rescued: false });
         });
 
         function initRoomsWithModels() {
@@ -273,12 +234,12 @@
             
             const babyModel1 = babyModelTemplate.clone();
             babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-14, 0.3, -14);
+            babyModel1.position.set(-16, 0.3, -16);
             scene.add(babyModel1);
 
             const babyModel2 = babyModelTemplate.clone();
             babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(14, 0.3, -14);
+            babyModel2.position.set(12, 0.3, 10);
             scene.add(babyModel2);
 
             rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
@@ -297,7 +258,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -315,7 +276,6 @@
         const bullets = [];
         const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
         const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
-
         const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
 
         for (let i = 0; i < 2; i++) {
@@ -326,7 +286,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0.5;
@@ -349,7 +309,7 @@
         // =========================================================
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
-        snailGroup.position.set(0, 0, 10);
+        snailGroup.position.set(-18, 0, 18); // Starts near home base
 
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
@@ -387,7 +347,7 @@
         let score = 0;
         let health = 100;
         let carriedBabies = [];
-        let timeLeft = 45;
+        let timeLeft = 60;
         let freezeTimer = 0;
         let gameOver = false;
 
@@ -479,7 +439,7 @@
             requestAnimationFrame(animate);
             if (gameOver) return;
 
-            // Handle Freeze State
+                // Freeze logic
             if (freezeTimer > 0) {
                 freezeTimer -= 0.016;
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
@@ -507,11 +467,12 @@
             if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
             bellGroup.rotation.y += 0.03;
 
-            // Check Bell Freeze Collision
+            // Check Bell Collision
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
-// Move Enemy Shooters & Fire Bullets
+
+            // Move Enemy Shooters
             enemies.forEach(en => {
                 en.mesh.position.x += en.speedX;
                 en.mesh.position.z += en.speedZ;
@@ -530,7 +491,7 @@
                 }
             });
 
-            // Bullets Collision
+            // Bullets Logic
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -571,7 +532,7 @@
                 }
             }
 
-            // Room Rescue
+            // Baby Pickups
             rooms.forEach(room => {
                 if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
@@ -580,7 +541,7 @@
                 }
             });
 
-            // Rescued baby trail
+            // Trail behind player
             for (let i = 0; i < carriedBabies.length; i++) {
                 let baby = carriedBabies[i];
                 let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
@@ -588,7 +549,7 @@
                 baby.position.y = 0.3;
             }
 
-            // Home Base Drop-off
+            // Drop-off at Home Base or Exit
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
@@ -597,7 +558,7 @@
                 carriedBabies = [];
 
                 if (score >= 2) {
-                    endGame("LEVEL 1 VICTORY!");
+                    endGame("LEVEL 2 VICTORY!");
                 }
             }
 
