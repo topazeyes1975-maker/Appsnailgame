@@ -169,7 +169,7 @@
         // 🧱 LEVEL 2 BOUNDARY & MAZE WALLS
         // =========================================================
         // Outer Boundaries
-        createWall(0, -22, 44, 2);             // Top Wall
+        createWall(0, 22, 44, 2);             // Top Wall
         createWall(-22, -2, 2, 40);            // Left Wall (Leaves entrance gap at bottom-left)
         createWall(22, 2, 2, 40);              // Right Outer Wall (Leaves top-right exit gap)
         createWall(20, -10, 2, 20);            // Right Inner Corridor
@@ -227,6 +227,15 @@
         }, undefined, function (error) {
             rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-16, -16), rescued: false });
             rooms.push({ mesh: room2, babyMesh: createFallbackBaby(12, 10), rescued: false });
+                    // Baby Pickups (Blocked when shield is active)
+            rooms.forEach(room => {
+                // The !isShieldActive check forces the player to drop the shield to rescue the baby
+                if (!isShieldActive && !room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
+                    room.rescued = true;
+                    room.mesh.visible = false;
+                    carriedBabies.push(room.babyMesh);
+                }
+            });
         });
 
         function initRoomsWithModels() {
