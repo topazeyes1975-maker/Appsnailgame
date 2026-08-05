@@ -126,7 +126,7 @@
         const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
         homeBaseGroup.add(fallbackBase);
 
-        loader.load('Meshy_AI_Gigantic_Tardis_1785677000_compressed.glb', function (gltf) {
+        loader.load('Meshy_AI_Gigantic_Tardis_1785677000-compressed.glb', function (gltf) {
             homeBaseGroup.remove(fallbackBase);
             const baseModel = gltf.scene;
             baseModel.scale.set(1.0, 1.0, 1.0);
@@ -167,28 +167,31 @@
             wallBoundingBoxes.push(box);
         }
 
-        createWall(0, -22, 44, 2);             
-        createWall(-22, -2, 2, 40);            
-        createWall(22, 2, 2, 40);              
-        createWall(20, -10, 2, 20);            
-        createWall(0, 22, 44, 2);              
+        createWall(-1, -22, 44, 2); //upper outside frame           
+        createWall(-22, -2, 2, 40);   //left sidewall frame 
+        createWall(21, 2, 2, 40);      //right sidewall frame    
+        createWall(-30, -10, 2, 20);  //??          
+        createWall(0, 22, 44, 2);       //bottom frame wall     
 
-        createWall(-12, -18, 16, 0.8);         
-        createWall(-12, -14, 12, 0.8);         
-        createWall(-5, -16, 0.8, 4);           
-        createWall(-10, -8, 14, 0.8);          
-        createWall(2, -14, 0.8, 10);           
-        createWall(6, -10, 8, 0.8);            
-        createWall(10, -6, 0.8, 8);            
-        createWall(4, -2, 12, 0.8);            
-        createWall(0, 10, 0.8, 16);            
-        createWall(0, 18, 4, 0.8);             
-        createWall(-16, 6, 0.8, 12);           
-        createWall(-12, 12, 8, 0.8);           
-        createWall(-14, 16, 8, 0.8);           
-        createWall(10, 6, 12, 0.8);            
-        createWall(4, 12, 0.8, 12);            
-        createWall(11, 14, 8, 0.8);            
+        // Maze Interior
+        createWall( -15, -13, 16, 1); //wall by baby on left        
+        createWall(-1, -7, 30, 0.8);         // Top-left chamber bottom wall
+        createWall(-2, -14, .8, 14);   //feet left sidewall on left side by baby        
+        createWall( -19, 0, 7, 0.8);          // Upper-mid horizontal
+        createWall(18, 11, 0.8, 10);          // Exit chute vertical
+        createWall(16, -17.5, 8, 0.8);            // Z-corridor top
+        createWall(5, -17, 0.8, 8);            // Z-corridor right
+        createWall(4, -2, 12, 0.8);            // Central bridge
+        createWall(-8, 10, 0.8, 16);            // Red X divider
+        createWall(9, 18, 4, 0.8);             // Red X barrier base
+        createWall(-16, 6, 0.8, 12);           // Entrance right wall
+        createWall(-12, 12, 8, 0.8);           // Entrance top wall
+        createWall(-12, 17.5, 8, 0.8);           // Entrance bottom guide
+        createWall(12, 6, 12, 0.8);            // Bottom-right top wall
+        createWall(7.5, 13, 0.8, 12);            // Bottom-right inner left
+        createWall(11, 14, 8, 0.8);            // Bottom-right inner hook
+
+       
 
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
@@ -249,7 +252,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -274,7 +277,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0.5;
