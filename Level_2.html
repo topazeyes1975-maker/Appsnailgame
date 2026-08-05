@@ -169,28 +169,28 @@
         // 🧱 LEVEL 2 BOUNDARY & MAZE WALLS
         // =========================================================
         // Outer Boundaries
-        createWall(0, 22, 44, 2);             // Top Wall
-        createWall(-22, -2, 2, 40);            // Left Wall (Leaves entrance gap at bottom-left)
-        createWall(22, 2, 2, 40);              // Right Outer Wall (Leaves top-right exit gap)
-        createWall(20, -10, 2, 20);            // Right Inner Corridor
-        createWall(0, 22, 44, 2);              // Bottom Wall
+        createWall(-1, -22, 44, 2); //upper outside frame           
+        createWall(-22, -2, 2, 40);   //left sidewall frame 
+        createWall(21, 2, 2, 40);      //right sidewall frame    
+        createWall(-30, -10, 2, 20);  //??          
+        createWall(0, 22, 44, 2);       //bottom frame wall     
 
         // Maze Interior
-        createWall(-12, -18, 16, 0.8);         // Top-left chamber top wall
-        createWall(-12, -14, 12, 0.8);         // Top-left chamber bottom wall
-        createWall(-5, -16, 0.8, 4);           // Top-left chamber back wall
-        createWall(-10, -8, 14, 0.8);          // Upper-mid horizontal
-        createWall(2, -14, 0.8, 10);           // Exit chute vertical
-        createWall(6, -10, 8, 0.8);            // Z-corridor top
-        createWall(10, -6, 0.8, 8);            // Z-corridor right
+        createWall( -15, -13, 16, 1); //wall by baby on left        
+        createWall(-1, -7, 30, 0.8);         // Top-left chamber bottom wall
+        createWall(-2, -14, .8, 14);   //feet left sidewall on left side by baby        
+        createWall( -19, 0, 7, 0.8);          // Upper-mid horizontal
+        createWall(18, 11, 0.8, 10);          // Exit chute vertical
+        createWall(16, -17.5, 8, 0.8);            // Z-corridor top
+        createWall(5, -17, 0.8, 8);            // Z-corridor right
         createWall(4, -2, 12, 0.8);            // Central bridge
-        createWall(0, 10, 0.8, 16);            // Red X divider
-        createWall(0, 18, 4, 0.8);             // Red X barrier base
+        createWall(-8, 10, 0.8, 16);            // Red X divider
+        createWall(9, 18, 4, 0.8);             // Red X barrier base
         createWall(-16, 6, 0.8, 12);           // Entrance right wall
         createWall(-12, 12, 8, 0.8);           // Entrance top wall
-        createWall(-14, 16, 8, 0.8);           // Entrance bottom guide
-        createWall(10, 6, 12, 0.8);            // Bottom-right top wall
-        createWall(4, 12, 0.8, 12);            // Bottom-right inner left
+        createWall(-12, 17.5, 8, 0.8);           // Entrance bottom guide
+        createWall(12, 6, 12, 0.8);            // Bottom-right top wall
+        createWall(7.5, 13, 0.8, 12);            // Bottom-right inner left
         createWall(11, 14, 8, 0.8);            // Bottom-right inner hook
 
         // =========================================================
@@ -227,15 +227,6 @@
         }, undefined, function (error) {
             rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-16, -16), rescued: false });
             rooms.push({ mesh: room2, babyMesh: createFallbackBaby(12, 10), rescued: false });
-                    // Baby Pickups (Blocked when shield is active)
-            rooms.forEach(room => {
-                // The !isShieldActive check forces the player to drop the shield to rescue the baby
-                if (!isShieldActive && !room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
-                    room.rescued = true;
-                    room.mesh.visible = false;
-                    carriedBabies.push(room.babyMesh);
-                }
-            });
         });
 
         function initRoomsWithModels() {
@@ -267,7 +258,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -295,7 +286,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0.5;
@@ -447,8 +438,7 @@
         function animate() {
             requestAnimationFrame(animate);
             if (gameOver) return;
-
-                // Freeze logic
+// Freeze logic
             if (freezeTimer > 0) {
                 freezeTimer -= 0.016;
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
@@ -541,9 +531,9 @@
                 }
             }
 
-            // Baby Pickups
+            // Baby Pickups (REQUIRES SHIELD TO BE OFF: !isShieldActive)
             rooms.forEach(room => {
-                if (!room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
+                if (!isShieldActive && !room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
                     room.mesh.visible = false;
                     carriedBabies.push(room.babyMesh);
