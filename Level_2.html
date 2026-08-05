@@ -11,9 +11,9 @@
         .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
         #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
 
-         .joystick { 
+        .joystick { 
             position: absolute; 
-            bottom: 80px; /* Raised up from 30px to clear phone gesture zones */
+            bottom: 80px; /* Raised to clear phone screen edges */
             width: 120px; 
             height: 120px; 
             background: rgba(5, 5, 8, 0.75); 
@@ -38,14 +38,16 @@
             pointer-events: none; 
             box-shadow: 0 0 12px #00ffcc; 
         }
-#star-display {
-    font-size: 36px;
-    margin: 15px 0;
-    color: #ffcc00;
-    text-shadow: 0 0 10px #ffcc00;
-}
-        
+
         #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
+        
+        #star-display {
+            font-size: 36px;
+            margin: 15px 0;
+            color: #ffcc00;
+            text-shadow: 0 0 10px #ffcc00;
+        }
+
         #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
@@ -62,19 +64,14 @@
 
     <div id="status-screen">
         <div id="status-text">LEVEL 2 COMPLETE</div>
+        <div id="star-display"></div>
         <button onclick="location.reload()">Play Again</button>
     </div>
-<div id="status-screen">
-    <div id="status-text">LEVEL 2 COMPLETE</div>
-    <div id="star-display"></div> <!-- Added for stars -->
-    <button onclick="location.reload()">Play Again</button>
-</div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
-        
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050508);
 
@@ -86,12 +83,10 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // INITIALIZE LOADERS FIRST
         const loader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
         textureLoader.setCrossOrigin('anonymous');
 
-        // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
         
@@ -99,7 +94,6 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // Load Floor Image Texture
         const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -123,9 +117,6 @@
         floorGrid.position.y = 0.01;
         scene.add(floorGrid);
 
-        // =========================================================
-        // 🏠 3D HOME BASE MODEL (Bottom-Left Entrance Area)
-        // =========================================================
         const homeBaseGroup = new THREE.Group();
         homeBaseGroup.position.set(-18, 0.02, 18);
         scene.add(homeBaseGroup);
@@ -145,7 +136,6 @@
             console.error("Home Base model load error:", error);
         });
 
-        // Load Wall Image Texture
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -177,37 +167,29 @@
             wallBoundingBoxes.push(box);
         }
 
-        // =========================================================
-        // 🧱 LEVEL 2 BOUNDARY & MAZE WALLS
-        // =========================================================
-        // Outer Boundaries
-        createWall(-1, -22, 44, 2); //upper outside frame           
-        createWall(-22, -2, 2, 40);   //left sidewall frame 
-        createWall(21, 2, 2, 40);      //right sidewall frame    
-        createWall(-30, -10, 2, 20);  //??          
-        createWall(0, 22, 44, 2);       //bottom frame wall     
+        createWall(0, -22, 44, 2);             
+        createWall(-22, -2, 2, 40);            
+        createWall(22, 2, 2, 40);              
+        createWall(20, -10, 2, 20);            
+        createWall(0, 22, 44, 2);              
 
-        // Maze Interior
-        createWall( -15, -13, 16, 1); //wall by baby on left        
-        createWall(-1, -7, 30, 0.8);         // Top-left chamber bottom wall
-        createWall(-2, -14, .8, 14);   //feet left sidewall on left side by baby        
-        createWall( -19, 0, 7, 0.8);          // Upper-mid horizontal
-        createWall(18, 11, 0.8, 10);          // Exit chute vertical
-        createWall(16, -17.5, 8, 0.8);            // Z-corridor top
-        createWall(5, -17, 0.8, 8);            // Z-corridor right
-        createWall(4, -2, 12, 0.8);            // Central bridge
-        createWall(-8, 10, 0.8, 16);            // Red X divider
-        createWall(9, 18, 4, 0.8);             // Red X barrier base
-        createWall(-16, 6, 0.8, 12);           // Entrance right wall
-        createWall(-12, 12, 8, 0.8);           // Entrance top wall
-        createWall(-12, 17.5, 8, 0.8);           // Entrance bottom guide
-        createWall(12, 6, 12, 0.8);            // Bottom-right top wall
-        createWall(7.5, 13, 0.8, 12);            // Bottom-right inner left
-        createWall(11, 14, 8, 0.8);            // Bottom-right inner hook
+        createWall(-12, -18, 16, 0.8);         
+        createWall(-12, -14, 12, 0.8);         
+        createWall(-5, -16, 0.8, 4);           
+        createWall(-10, -8, 14, 0.8);          
+        createWall(2, -14, 0.8, 10);           
+        createWall(6, -10, 8, 0.8);            
+        createWall(10, -6, 0.8, 8);            
+        createWall(4, -2, 12, 0.8);            
+        createWall(0, 10, 0.8, 16);            
+        createWall(0, 18, 4, 0.8);             
+        createWall(-16, 6, 0.8, 12);           
+        createWall(-12, 12, 8, 0.8);           
+        createWall(-14, 16, 8, 0.8);           
+        createWall(10, 6, 12, 0.8);            
+        createWall(4, 12, 0.8, 12);            
+        createWall(11, 14, 8, 0.8);            
 
-        // =========================================================
-        // 👶 BABIES (Placed inside dead ends)
-        // =========================================================
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
         
@@ -258,9 +240,6 @@
             rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
         }
 
-        // =========================================================
-        // 🔔 MAGIC BELL HAZARD
-        // =========================================================
         const bellGroup = new THREE.Group();
         bellGroup.position.set(0, 0.75, -8);
         scene.add(bellGroup);
@@ -270,7 +249,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -281,9 +260,6 @@
 
         let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
-        // =========================================================
-        // 👾 ENEMY SHOOTERS
-        // =========================================================
         const enemies = [];
         const bullets = [];
         const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
@@ -298,7 +274,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0.5;
@@ -307,13 +283,7 @@
             }, undefined, function (error) {
                 console.error("Human Walker load error:", error);
             });
-health = Math.max(0, health - 15);
-tookDamage = true; // Track that player took damage
-            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
-    isShieldActive = true;
-    shieldUsedEver = true; // Track that shield was used
-            }
-            
+
             enemies.push({ 
                 mesh: enemyGroup, 
                 speedX: (Math.random() - 0.5) * 0.04, 
@@ -322,12 +292,9 @@ tookDamage = true; // Track that player took damage
             });
         }
 
-        // =========================================================
-        // 🐌 SNAIL GROUP (MAIN CHARACTER)
-        // =========================================================
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
-        snailGroup.position.set(-18, 0, 18); // Starts near home base
+        snailGroup.position.set(-18, 0, 18);
 
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
@@ -359,9 +326,11 @@ tookDamage = true; // Track that player took damage
             snailGroup.add(character);
         }, undefined, function (error) {});
 
-        // Game State
+        // Game State & Star Tracking
         let moveX = 0, moveZ = 0;
         let isShieldActive = false;
+        let shieldUsedEver = false; // Star 1 Tracker
+        let tookDamage = false;      // Star 3 Tracker
         let score = 0;
         let health = 100;
         let carriedBabies = [];
@@ -420,13 +389,13 @@ tookDamage = true; // Track that player took damage
         setupJoystick('right-stick', 'right-knob', (x, y) => {
             if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
                 isShieldActive = true;
+                shieldUsedEver = true; // Recorded shield use
                 reflectiveShield.scale.set(1.3, 1.3, 1.3);
                 shieldMat.emissiveIntensity = 1.0;
             } else {
                 isShieldActive = false;
                 reflectiveShield.scale.set(1.0, 1.0, 1.0);
                 shieldMat.emissiveIntensity = 0.4;
-                
             }
         });
 
@@ -439,6 +408,24 @@ tookDamage = true; // Track that player took damage
         function endGame(message) {
             gameOver = true;
             document.getElementById('status-text').innerText = message;
+            
+            
+            // Star calculation on victory
+            if (message.includes("VICTORY")) {
+                let stars = 0;
+                if (!shieldUsedEver) stars++; // Star 1: No shield
+                if (timeLeft >= 20) stars++;   // Star 2: Fast finish (20s+ remaining)
+                if (!tookDamage) stars++;      // Star 3: No damage taken
+
+                let starString = "";
+                for (let i = 0; i < 3; i++) {
+                    starString += i < stars ? "⭐ " : "☆ ";
+                }
+                document.getElementById('star-display').innerText = starString;
+            } else {
+                document.getElementById('star-display').innerText = "";
+            }
+
             document.getElementById('status-screen').style.display = 'flex';
         }
 
@@ -453,11 +440,10 @@ tookDamage = true; // Track that player took damage
             return true;
         }
 
-        // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
             if (gameOver) return;
-// Freeze logic
+
             if (freezeTimer > 0) {
                 freezeTimer -= 0.016;
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
@@ -479,18 +465,15 @@ tookDamage = true; // Track that player took damage
 
             reflectiveShield.rotation.y += 0.02;
 
-            // Move Magic Bell Hazard
             bellGroup.position.add(bellVelocity);
             if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
             if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
             bellGroup.rotation.y += 0.03;
 
-            // Check Bell Collision
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
 
-            // Move Enemy Shooters
             enemies.forEach(en => {
                 en.mesh.position.x += en.speedX;
                 en.mesh.position.z += en.speedZ;
@@ -509,7 +492,6 @@ tookDamage = true; // Track that player took damage
                 }
             });
 
-            // Bullets Logic
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -537,13 +519,12 @@ tookDamage = true; // Track that player took damage
                 } 
                 else if (!isShieldActive && distToPlayer < 1.2) {
                     health = Math.max(0, health - 15);
+                    tookDamage = true; // Recorded taking damage
                     updateHealthBar();
                     scene.remove(b.mesh);
                     bullets.splice(i, 1);
                     if (health <= 0) endGame("GAME OVER - SHOT DOWN");
                     continue;
-                    let shieldUsedEver = false;
-                    let tookDamage = false;    
                 }
 
                 if (Math.abs(b.mesh.position.x) > 25 || Math.abs(b.mesh.position.z) > 25) {
@@ -552,7 +533,6 @@ tookDamage = true; // Track that player took damage
                 }
             }
 
-            // Baby Pickups (REQUIRES SHIELD TO BE OFF: !isShieldActive)
             rooms.forEach(room => {
                 if (!isShieldActive && !room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
                     room.rescued = true;
@@ -561,7 +541,6 @@ tookDamage = true; // Track that player took damage
                 }
             });
 
-            // Trail behind player
             for (let i = 0; i < carriedBabies.length; i++) {
                 let baby = carriedBabies[i];
                 let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
@@ -569,7 +548,6 @@ tookDamage = true; // Track that player took damage
                 baby.position.y = 0.3;
             }
 
-            // Drop-off at Home Base or Exit
             if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
                 score += carriedBabies.length;
                 document.getElementById('score').innerText = score;
@@ -581,36 +559,7 @@ tookDamage = true; // Track that player took damage
                     endGame("LEVEL 2 VICTORY!");
                 }
             }
-function endGame(message) {
-    gameOver = true;
-    document.getElementById('status-text').innerText = message;
-    
-    // Only calculate stars if the player won
-    if (message.includes("VICTORY")) {
-        let stars = 0;
-        
-        // Star 1: Beaten without shield
-        if (!shieldUsedEver) stars++;
-        
-        // Star 2: Fast finish (e.g. 20 seconds or more left)
-        if (timeLeft >= 20) stars++;
-        
-        // Star 3: Perfect run (no damage)
-        if (!tookDamage) stars++;
 
-        let starString = "";
-        for (let i = 0; i < 3; i++) {
-            starString += i < stars ? "⭐ " : "☆ ";
-        }
-        document.getElementById('star-display').innerText = starString;
-    } else {
-        document.getElementById('star-display').innerText = "";
-    }
-
-    document.getElementById('status-screen').style.display = 'flex';
-}
-            
-            // Camera Tracking
             camera.position.x = snailGroup.position.x;
             camera.position.z = snailGroup.position.z + 14;
             camera.lookAt(snailGroup.position.x, snailGroup.position.y, snailGroup.position.z);
