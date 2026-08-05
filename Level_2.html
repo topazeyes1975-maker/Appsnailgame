@@ -38,7 +38,13 @@
             pointer-events: none; 
             box-shadow: 0 0 12px #00ffcc; 
         }
-
+#star-display {
+    font-size: 36px;
+    margin: 15px 0;
+    color: #ffcc00;
+    text-shadow: 0 0 10px #ffcc00;
+}
+        
         #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
         #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     </style>
@@ -58,11 +64,17 @@
         <div id="status-text">LEVEL 2 COMPLETE</div>
         <button onclick="location.reload()">Play Again</button>
     </div>
-
+<div id="status-screen">
+    <div id="status-text">LEVEL 2 COMPLETE</div>
+    <div id="star-display"></div> <!-- Added for stars -->
+    <button onclick="location.reload()">Play Again</button>
+</div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
+        
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050508);
 
@@ -295,7 +307,13 @@
             }, undefined, function (error) {
                 console.error("Human Walker load error:", error);
             });
-
+health = Math.max(0, health - 15);
+tookDamage = true; // Track that player took damage
+            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
+    isShieldActive = true;
+    shieldUsedEver = true; // Track that shield was used
+            }
+            
             enemies.push({ 
                 mesh: enemyGroup, 
                 speedX: (Math.random() - 0.5) * 0.04, 
@@ -408,6 +426,7 @@
                 isShieldActive = false;
                 reflectiveShield.scale.set(1.0, 1.0, 1.0);
                 shieldMat.emissiveIntensity = 0.4;
+                
             }
         });
 
@@ -523,6 +542,8 @@
                     bullets.splice(i, 1);
                     if (health <= 0) endGame("GAME OVER - SHOT DOWN");
                     continue;
+                    let shieldUsedEver = false;
+                    let tookDamage = false;    
                 }
 
                 if (Math.abs(b.mesh.position.x) > 25 || Math.abs(b.mesh.position.z) > 25) {
@@ -560,7 +581,35 @@
                     endGame("LEVEL 2 VICTORY!");
                 }
             }
+function endGame(message) {
+    gameOver = true;
+    document.getElementById('status-text').innerText = message;
+    
+    // Only calculate stars if the player won
+    if (message.includes("VICTORY")) {
+        let stars = 0;
+        
+        // Star 1: Beaten without shield
+        if (!shieldUsedEver) stars++;
+        
+        // Star 2: Fast finish (e.g. 20 seconds or more left)
+        if (timeLeft >= 20) stars++;
+        
+        // Star 3: Perfect run (no damage)
+        if (!tookDamage) stars++;
 
+        let starString = "";
+        for (let i = 0; i < 3; i++) {
+            starString += i < stars ? "⭐ " : "☆ ";
+        }
+        document.getElementById('star-display').innerText = starString;
+    } else {
+        document.getElementById('star-display').innerText = "";
+    }
+
+    document.getElementById('status-screen').style.display = 'flex';
+}
+            
             // Camera Tracking
             camera.position.x = snailGroup.position.x;
             camera.position.z = snailGroup.position.z + 14;
