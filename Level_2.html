@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Armored Snail: Level 2 Maze</title>
+    <title>The Chaos Before the Savior: Level 2</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; }
         #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 15px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.5; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
@@ -13,7 +13,7 @@
 
         .joystick { 
             position: absolute; 
-            bottom: 80px; /* Raised to clear phone screen edges */
+            bottom: 80px; 
             width: 120px; 
             height: 120px; 
             background: rgba(5, 5, 8, 0.75); 
@@ -126,16 +126,6 @@
         const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
         homeBaseGroup.add(fallbackBase);
 
-        loader.load('Meshy_AI_Gigantic_Tardis_1785677000-compressed.glb', function (gltf) {
-            homeBaseGroup.remove(fallbackBase);
-            const baseModel = gltf.scene;
-            baseModel.scale.set(1.0, 1.0, 1.0);
-            baseModel.position.y = 1.5;
-            homeBaseGroup.add(baseModel);
-        }, undefined, function (error) {
-            console.error("Home Base model load error:", error);
-        });
-
         const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -167,31 +157,30 @@
             wallBoundingBoxes.push(box);
         }
 
-        createWall(-1, -22, 44, 2); //upper outside frame           
-        createWall(-22, -2, 2, 40);   //left sidewall frame 
-        createWall(21, 2, 2, 40);      //right sidewall frame    
-        createWall(-30, -10, 2, 20);  //??          
-        createWall(0, 22, 44, 2);       //bottom frame wall     
+        // YOUR UPDATED MAZE WALL LAYOUT
+        createWall(-1, -22, 44, 2);   // upper outside frame           
+        createWall(-22, -2, 2, 40);   // left sidewall frame 
+        createWall(21, 2, 2, 40);     // right sidewall frame    
+        createWall(-30, -10, 2, 20);  // outer boundary line         
+        createWall(0, 22, 44, 2);      // bottom frame wall     
 
         // Maze Interior
-        createWall( -15, -13, 16, 1); //wall by baby on left        
-        createWall(-1, -7, 30, 0.8);         // Top-left chamber bottom wall
-        createWall(-2, -14, .8, 14);   //feet left sidewall on left side by baby        
-        createWall( -19, 0, 7, 0.8);          // Upper-mid horizontal
-        createWall(18, 11, 0.8, 10);          // Exit chute vertical
-        createWall(16, -17.5, 8, 0.8);            // Z-corridor top
-        createWall(5, -17, 0.8, 8);            // Z-corridor right
-        createWall(4, -2, 12, 0.8);            // Central bridge
-        createWall(-8, 10, 0.8, 16);            // Red X divider
-        createWall(9, 18, 4, 0.8);             // Red X barrier base
-        createWall(-16, 6, 0.8, 12);           // Entrance right wall
-        createWall(-12, 12, 8, 0.8);           // Entrance top wall
-        createWall(-12, 17.5, 8, 0.8);           // Entrance bottom guide
-        createWall(12, 6, 12, 0.8);            // Bottom-right top wall
-        createWall(7.5, 13, 0.8, 12);            // Bottom-right inner left
-        createWall(11, 14, 8, 0.8);            // Bottom-right inner hook
-
-       
+        createWall(-15, -13, 16, 1);   // wall by baby on left        
+        createWall(-1, -7, 30, 0.8);   // Top-left chamber bottom wall
+        createWall(-2, -14, 0.8, 14);  // feet left sidewall on left side by baby        
+        createWall(-19, 0, 7, 0.8);    // Upper-mid horizontal
+        createWall(18, 11, 0.8, 10);   // Exit chute vertical
+        createWall(16, -17.5, 8, 0.8); // Z-corridor top
+        createWall(5, -17, 0.8, 8);    // Z-corridor right
+        createWall(4, -2, 12, 0.8);    // Central bridge
+        createWall(-8, 10, 0.8, 16);   // Red X divider
+        createWall(9, 18, 4, 0.8);     // Red X barrier base
+        createWall(-16, 6, 0.8, 12);   // Entrance right wall
+        createWall(-12, 12, 8, 0.8);   // Entrance top wall
+        createWall(-12, 17.5, 8, 0.8); // Entrance bottom guide
+        createWall(12, 6, 12, 0.8);    // Bottom-right top wall
+        createWall(7.5, 13, 0.8, 12);  // Bottom-right inner left
+        createWall(11, 14, 8, 0.8);    // Bottom-right inner hook
 
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
@@ -252,14 +241,12 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
             bellGroup.add(bellModel);
-        }, undefined, function (error) {
-            console.error("Bell model load error:", error);
-        });
+        }, undefined, function (error) {});
 
         let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
 
@@ -277,15 +264,13 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0.5;
                 humanModel.scale.set(0.8, 0.8, 0.8);
                 enemyGroup.add(humanModel);
-            }, undefined, function (error) {
-                console.error("Human Walker load error:", error);
-            });
+            }, undefined, function (error) {});
 
             enemies.push({ 
                 mesh: enemyGroup, 
@@ -329,11 +314,10 @@
             snailGroup.add(character);
         }, undefined, function (error) {});
 
-        // Game State & Star Tracking
         let moveX = 0, moveZ = 0;
         let isShieldActive = false;
-        let shieldUsedEver = false; // Star 1 Tracker
-        let tookDamage = false;      // Star 3 Tracker
+        let shieldUsedEver = false; 
+        let tookDamage = false;      
         let score = 0;
         let health = 100;
         let carriedBabies = [];
@@ -392,7 +376,7 @@
         setupJoystick('right-stick', 'right-knob', (x, y) => {
             if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
                 isShieldActive = true;
-                shieldUsedEver = true; // Recorded shield use
+                shieldUsedEver = true; 
                 reflectiveShield.scale.set(1.3, 1.3, 1.3);
                 shieldMat.emissiveIntensity = 1.0;
             } else {
@@ -412,13 +396,11 @@
             gameOver = true;
             document.getElementById('status-text').innerText = message;
             
-            
-            // Star calculation on victory
             if (message.includes("VICTORY")) {
                 let stars = 0;
-                if (!shieldUsedEver) stars++; // Star 1: No shield
-                if (timeLeft >= 20) stars++;   // Star 2: Fast finish (20s+ remaining)
-                if (!tookDamage) stars++;      // Star 3: No damage taken
+                if (!shieldUsedEver) stars++; 
+                if (timeLeft >= 20) stars++;   
+                if (!tookDamage) stars++;      
 
                 let starString = "";
                 for (let i = 0; i < 3; i++) {
@@ -491,10 +473,11 @@
                     bullet.position.y = 1.0;
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
                     scene.add(bullet);
-                    bullets.push({ mesh: bullet, dir: dir, speed: 0.14 });
+                    bullets.push({ mesh: bullet, dir: dir, speed: 0.14, bounces: 0 });
                 }
             });
 
+            // BULLET LOGIC WITH 3 BOUNCE CAP & ENEMY/PLAYER RESPAWNS
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -502,16 +485,39 @@
                 let bulletBox = new THREE.Box3().setFromObject(b.mesh);
                 let hitWall = false;
 
+                // 1. Check Wall Collisions (3 Bounces Limit)
                 for (let wallBox of wallBoundingBoxes) {
                     if (bulletBox.intersectsBox(wallBox)) {
                         b.dir.negate();
+                        b.bounces++;
                         hitWall = true;
+
+                        if (b.bounces >= 3) {
+                            scene.remove(b.mesh);
+                            bullets.splice(i, 1);
+                        }
                         break;
                     }
                 }
 
                 if (hitWall) continue;
 
+                // 2. Check Hit Against Human (Enemy Shooter)
+                let hitEnemy = false;
+                enemies.forEach(en => {
+                    if (b.mesh.position.distanceTo(en.mesh.position) < 1.4) {
+                        en.mesh.position.x = (Math.random() - 0.5) * 30;
+                        en.mesh.position.z = (Math.random() - 0.5) * 30;
+
+                        scene.remove(b.mesh);
+                        bullets.splice(i, 1);
+                        hitEnemy = true;
+                    }
+                });
+
+                if (hitEnemy) continue;
+
+                // 3. Check Hit Against Player Creature / Shield
                 let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
 
                 if (isShieldActive && distToPlayer < 2.0) {
@@ -522,14 +528,16 @@
                 } 
                 else if (!isShieldActive && distToPlayer < 1.2) {
                     health = Math.max(0, health - 15);
-                    tookDamage = true; // Recorded taking damage
+                    tookDamage = true; 
                     updateHealthBar();
+                    
                     scene.remove(b.mesh);
                     bullets.splice(i, 1);
                     if (health <= 0) endGame("GAME OVER - SHOT DOWN");
                     continue;
                 }
 
+                // Cleanup out-of-bounds bullets
                 if (Math.abs(b.mesh.position.x) > 25 || Math.abs(b.mesh.position.z) > 25) {
                     scene.remove(b.mesh);
                     bullets.splice(i, 1);
