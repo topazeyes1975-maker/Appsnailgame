@@ -127,7 +127,7 @@ const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
 homeBaseGroup.add(fallbackBase);
 
 // Line 57: Load Home Base 3D Model here when ready
-/*
+
 loader.load('YOUR_COSMIC_SHELL_MODEL.glb', function (gltf) {
     homeBaseGroup.remove(fallbackBase);
     const shellBase = gltf.scene;
@@ -135,7 +135,7 @@ loader.load('YOUR_COSMIC_SHELL_MODEL.glb', function (gltf) {
     shellBase.position.set(0, 0, 0);
     homeBaseGroup.add(shellBase);
 });
-*/
+
 
 const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
     tex.wrapS = THREE.RepeatWrapping;
