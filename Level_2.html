@@ -2,36 +2,39 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>The Chaos Before the Savior: Level 2</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 15px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.5; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
+        * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #050508; font-family: sans-serif; width: 100vw; height: 100vh; }
         
-        .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
+        #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 14px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.4; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
+        
+        .health-bar-container { width: 140px; height: 12px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
         #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
 
         .joystick { 
-            position: absolute; 
-            bottom: 80px; 
-            width: 120px; 
-            height: 120px; 
-            background: rgba(5, 5, 8, 0.75); 
+            position: fixed; 
+            bottom: 30px; 
+            width: 100px; 
+            height: 100px; 
+            background: rgba(5, 5, 8, 0.85); 
             border: 3px solid #00ffcc; 
             border-radius: 50%; 
             pointer-events: auto; 
+            z-index: 20;
             box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
         }
 
-        #left-stick { left: 30px; }
-        #right-stick { right: 30px; }
+        #left-stick { left: 20px; }
+        #right-stick { right: 20px; }
 
         .stick-knob { 
             position: absolute; 
-            top: 35px; 
-            left: 35px; 
-            width: 50px; 
-            height: 50px; 
+            top: 25px; 
+            left: 25px; 
+            width: 44px; 
+            height: 44px; 
             background: #00ffcc; 
             border: 2px solid #050508;
             border-radius: 50%; 
@@ -39,7 +42,25 @@
             box-shadow: 0 0 12px #00ffcc; 
         }
 
-        #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
+        #status-screen { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: rgba(5,5,8,0.92); 
+            display: none; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            color: #00ffcc; 
+            font-size: 26px; 
+            font-weight: bold; 
+            z-index: 1000; 
+            text-align: center; 
+            text-shadow: 0 0 10px #00ffcc; 
+            pointer-events: auto;
+        }
         
         #star-display {
             font-size: 36px;
@@ -48,7 +69,20 @@
             text-shadow: 0 0 10px #ffcc00;
         }
 
-        #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        #status-screen button { 
+            margin-top: 25px; 
+            padding: 16px 32px; 
+            background: #00ffcc; 
+            border: none; 
+            color: #050508; 
+            font-size: 20px; 
+            font-weight: bold; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            box-shadow: 0 0 15px #00ffcc;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
     </style>
 </head>
 <body>
@@ -65,13 +99,22 @@
     <div id="status-screen">
         <div id="status-text">LEVEL 2 COMPLETE</div>
         <div id="star-display"></div>
-        <button onclick="location.reload()">Play Again</button>
+        <button id="restart-btn">Play Again</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
+        document.getElementById('restart-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            location.reload();
+        });
+        document.getElementById('restart-btn').addEventListener('touchend', function(e) {
+            e.preventDefault();
+            location.reload();
+        });
+
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050508);
 
@@ -81,6 +124,7 @@
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         const loader = new THREE.GLTFLoader();
@@ -159,14 +203,12 @@
             wallBoundingBoxes.push(box);
         }
 
-        // Perimeter Walls
         createWall(-1, -22, 44, 2);   
         createWall(-22, -2, 2, 40);   
         createWall(21, 2, 2, 40);     
         createWall(-30, -10, 2, 20);  
         createWall(0, 22, 44, 2);      
 
-        // Interior Maze Walls
         createWall(-15, -13, 16, 1);   
         createWall(-1, -7, 30, 0.8);   
         createWall(-2, -14, 0.8, 14);  
@@ -243,7 +285,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -252,7 +294,6 @@
 
         let bellVelocity = new THREE.Vector3(0.06, 0, 0.05);
 
-        // Guard Enemy Setup
         const enemies = [];
         const bullets = [];
         const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
@@ -274,7 +315,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0;
@@ -352,19 +393,25 @@
         function setupJoystick(stickId, knobId, callback) {
             const stick = document.getElementById(stickId);
             const knob = document.getElementById(knobId);
-            const maxDist = 35;
+            const maxDist = 28;
             let activeTouchId = null;
 
             stick.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 const touch = e.changedTouches[0];
                 activeTouchId = touch.identifier;
                 updateStick(touch);
-            });
+            }, { passive: false });
+
             window.addEventListener('touchmove', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === activeTouchId) updateStick(e.changedTouches[i]);
+                    if (e.changedTouches[i].identifier === activeTouchId) {
+                        e.preventDefault();
+                        updateStick(e.changedTouches[i]);
+                    }
                 }
-            });
+            }, { passive: false });
+
             window.addEventListener('touchend', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     if (e.changedTouches[i].identifier === activeTouchId) {
@@ -374,6 +421,7 @@
                     }
                 }
             });
+
             function updateStick(touch) {
                 const r = stick.getBoundingClientRect();
                 let x = touch.clientX - r.left - (r.width / 2);
@@ -502,7 +550,6 @@
 
             reflectiveShield.rotation.y += isBoostActive ? 0.08 : 0.02;
 
-            // Bell Physics
             let nextBellX = bellGroup.position.x + bellVelocity.x;
             let nextBellZ = bellGroup.position.z + bellVelocity.z;
 
@@ -523,20 +570,11 @@
                 freezeTimer = 5.0; 
             }
 
-            // Human Guard Behavior - Target & Hunt Player or Patrol
             enemies.forEach(en => {
                 let distToSnail = en.mesh.position.distanceTo(snailGroup.position);
                 let canSeePlayer = distToSnail < 18 && hasLineOfSight(en.mesh.position, snailGroup.position);
 
-                let targetPos;
-                if (canSeePlayer) {
-                    // Lock onto player to chase
-                    targetPos = snailGroup.position;
-                } else {
-                    // Fallback to patrol path
-                    targetPos = en.route[en.targetIndex];
-                }
-
+                let targetPos = canSeePlayer ? snailGroup.position : en.route[en.targetIndex];
                 let dir = new THREE.Vector3().subVectors(targetPos, en.mesh.position);
                 dir.y = 0;
                 let distToTarget = dir.length();
@@ -546,7 +584,6 @@
                 } else if (distToTarget > 0.1) {
                     dir.normalize();
 
-                    // Wall navigation - Move along X or Z if blocked
                     let stepX = en.mesh.position.x + dir.x * en.speed;
                     let stepZ = en.mesh.position.z + dir.z * en.speed;
 
@@ -557,10 +594,10 @@
                         en.mesh.position.z = stepZ;
                         moved = true;
                     } else if (canEntityMoveTo(stepX, en.mesh.position.z, 0.6)) {
-                        en.mesh.position.x = stepX; // Wall slide along X
+                        en.mesh.position.x = stepX; 
                         moved = true;
                     } else if (canEntityMoveTo(en.mesh.position.x, stepZ, 0.6)) {
-                        en.mesh.position.z = stepZ; // Wall slide along Z
+                        en.mesh.position.z = stepZ; 
                         moved = true;
                     }
 
@@ -571,7 +608,6 @@
                     }
                 }
 
-                // Shooting Logic when targeting
                 if (canSeePlayer) {
                     en.shootCooldown--;
                     if (en.shootCooldown <= 0) {
@@ -589,7 +625,6 @@
                 }
             });
 
-            // Bullet Logic
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -679,4 +714,4 @@
         });
     </script>
 </body>
-</html>
+</html> 
