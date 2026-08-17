@@ -15,9 +15,9 @@
 
         .joystick { 
             position: fixed; 
-            bottom: 80px; 
-            width: 100px; 
-            height: 100px; 
+            bottom: 90px; 
+            width: 160px; 
+            height: 160px; 
             background: rgba(5, 5, 8, 0.85); 
             border: 3px solid #00ffcc; 
             border-radius: 50%; 
@@ -31,10 +31,10 @@
 
         .stick-knob { 
             position: absolute; 
-            top: 25px; 
-            left: 25px; 
-            width: 44px; 
-            height: 44px; 
+            top: 30px; 
+            left: 30px; 
+            width: 60px; 
+            height: 50px; 
             background: #00ffcc; 
             border: 2px solid #050508;
             border-radius: 50%; 
@@ -287,7 +287,7 @@
         const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
         bellGroup.add(fallbackBell);
 
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture_compressed.glb'), function (gltf) {
+        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
             bellGroup.remove(fallbackBell);
             const bellModel = gltf.scene;
             bellModel.scale.set(0.8, 0.8, 0.8);
@@ -317,7 +317,7 @@
             const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
             enemyGroup.add(fallbackEnemy);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture_compressed.glb'), function (gltf) {
+            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
                 enemyGroup.remove(fallbackEnemy);
                 const humanModel = gltf.scene;
                 humanModel.position.y = 0;
