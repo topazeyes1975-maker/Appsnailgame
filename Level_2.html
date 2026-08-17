@@ -250,7 +250,7 @@
             bellGroup.add(bellModel);
         }, undefined, function (error) {});
 
-        let bellVelocity = new THREE.Vector3(0.05, 0, 0.04);
+        let bellVelocity = new THREE.Vector3(0.06, 0, 0.05);
 
         // Guard Enemy Setup
         const enemies = [];
@@ -259,11 +259,10 @@
         const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
         const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
 
-        // Patrol Waypoints ensuring guards walk inside corridors instead of walls
         const patrolRoutes = [
-            [new THREE.Vector3(-15, 0, -10), new THREE.Vector3(15, 0, -10)],
-            [new THREE.Vector3(10, 0, -3), new THREE.Vector3(10, 0, 15)],
-            [new THREE.Vector3(-10, 0, 5), new THREE.Vector3(5, 0, 5)]
+            [new THREE.Vector3(-15, 0, -10), new THREE.Vector3(15, 0, -10), new THREE.Vector3(15, 0, -3), new THREE.Vector3(-15, 0, -3)],
+            [new THREE.Vector3(10, 0, -3), new THREE.Vector3(18, 0, -3), new THREE.Vector3(18, 0, 15), new THREE.Vector3(10, 0, 15)],
+            [new THREE.Vector3(-10, 0, 5), new THREE.Vector3(5, 0, 5), new THREE.Vector3(5, 0, 12), new THREE.Vector3(-10, 0, 12)]
         ];
 
         for (let i = 0; i < patrolRoutes.length; i++) {
@@ -287,7 +286,7 @@
                 mesh: enemyGroup, 
                 route: route,
                 targetIndex: 1,
-                speed: 0.05,
+                speed: 0.055,
                 shootCooldown: 0
             });
         }
@@ -462,7 +461,7 @@
             const intersects = raycaster.intersectObjects(wallMeshes);
             
             if (intersects.length > 0 && intersects[0].distance < dist) {
-                return false; // Wall blocks view
+                return false;
             }
             return true;
         }
@@ -503,44 +502,80 @@
 
             reflectiveShield.rotation.y += isBoostActive ? 0.08 : 0.02;
 
-            bellGroup.position.add(bellVelocity);
-            if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
-            if (Math.abs(bellGroup.position.z) > 18) bellVelocity.z *= -1;
+            // Bell Physics
+            let nextBellX = bellGroup.position.x + bellVelocity.x;
+            let nextBellZ = bellGroup.position.z + bellVelocity.z;
+
+            if (!canEntityMoveTo(nextBellX, bellGroup.position.z, 0.9)) {
+                bellVelocity.x *= -1;
+            } else {
+                bellGroup.position.x = nextBellX;
+            }
+
+            if (!canEntityMoveTo(bellGroup.position.x, nextBellZ, 0.9)) {
+                bellVelocity.z *= -1;
+            } else {
+                bellGroup.position.z = nextBellZ;
+            }
             bellGroup.rotation.y += 0.03;
 
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
             }
 
-            // Human Guard Behavior & Patrol Logic
+            // Human Guard Behavior - Target & Hunt Player or Patrol
             enemies.forEach(en => {
-                let targetPos = en.route[en.targetIndex];
+                let distToSnail = en.mesh.position.distanceTo(snailGroup.position);
+                let canSeePlayer = distToSnail < 18 && hasLineOfSight(en.mesh.position, snailGroup.position);
+
+                let targetPos;
+                if (canSeePlayer) {
+                    // Lock onto player to chase
+                    targetPos = snailGroup.position;
+                } else {
+                    // Fallback to patrol path
+                    targetPos = en.route[en.targetIndex];
+                }
+
                 let dir = new THREE.Vector3().subVectors(targetPos, en.mesh.position);
                 dir.y = 0;
                 let distToTarget = dir.length();
 
-                if (distToTarget < 0.2) {
+                if (!canSeePlayer && distToTarget < 0.4) {
                     en.targetIndex = (en.targetIndex + 1) % en.route.length;
-                } else {
+                } else if (distToTarget > 0.1) {
                     dir.normalize();
+
+                    // Wall navigation - Move along X or Z if blocked
                     let stepX = en.mesh.position.x + dir.x * en.speed;
                     let stepZ = en.mesh.position.z + dir.z * en.speed;
+
+                    let moved = false;
 
                     if (canEntityMoveTo(stepX, stepZ, 0.6)) {
                         en.mesh.position.x = stepX;
                         en.mesh.position.z = stepZ;
+                        moved = true;
+                    } else if (canEntityMoveTo(stepX, en.mesh.position.z, 0.6)) {
+                        en.mesh.position.x = stepX; // Wall slide along X
+                        moved = true;
+                    } else if (canEntityMoveTo(en.mesh.position.x, stepZ, 0.6)) {
+                        en.mesh.position.z = stepZ; // Wall slide along Z
+                        moved = true;
+                    }
+
+                    if (moved) {
                         en.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    } else {
+                    } else if (!canSeePlayer) {
                         en.targetIndex = (en.targetIndex + 1) % en.route.length;
                     }
                 }
 
-                // Line of Sight Spotting Logic
-                let distToSnail = en.mesh.position.distanceTo(snailGroup.position);
-                if (distToSnail < 16 && hasLineOfSight(en.mesh.position, snailGroup.position)) {
+                // Shooting Logic when targeting
+                if (canSeePlayer) {
                     en.shootCooldown--;
                     if (en.shootCooldown <= 0) {
-                        en.shootCooldown = 75; // Shoot timing
+                        en.shootCooldown = 75;
                         
                         const shootDir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
                         const bullet = new THREE.Mesh(bulletGeo, bulletMat);
@@ -554,7 +589,7 @@
                 }
             });
 
-            // Bullet Logic with Precise Wall Rebounds & Shield Reflects
+            // Bullet Logic
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
