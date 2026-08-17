@@ -15,7 +15,7 @@
 
         .joystick { 
             position: fixed; 
-            bottom: 30px; 
+            bottom: 80px; 
             width: 100px; 
             height: 100px; 
             background: rgba(5, 5, 8, 0.85); 
@@ -26,8 +26,8 @@
             box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.8);
         }
 
-        #left-stick { left: 20px; }
-        #right-stick { right: 20px; }
+        #left-stick { left: 40px; }
+        #right-stick { right: 40px; }
 
         .stick-knob { 
             position: absolute; 
@@ -126,6 +126,8 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
+
+        const clock = new THREE.Clock();
 
         const loader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
@@ -327,7 +329,7 @@
                 mesh: enemyGroup, 
                 route: route,
                 targetIndex: 1,
-                speed: 0.055,
+                speed: 3.3,
                 shootCooldown: 0
             });
         }
@@ -500,8 +502,7 @@
             }
             return true;
         }
-
-        function hasLineOfSight(guardPos, playerPos) {
+function hasLineOfSight(guardPos, playerPos) {
             const dir = new THREE.Vector3().subVectors(playerPos, guardPos).normalize();
             const dist = guardPos.distanceTo(playerPos);
             
@@ -518,8 +519,10 @@
             requestAnimationFrame(animate);
             if (gameOver) return;
 
+            const delta = Math.min(clock.getDelta(), 0.1);
+
             if (freezeTimer > 0) {
-                freezeTimer -= 0.016;
+                freezeTimer -= delta;
                 document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
                 document.getElementById('player-status').style.color = "#ffcc00";
             } else {
@@ -535,20 +538,20 @@
                     statusElement.style.color = "#00ffcc";
                 }
 
-                let currentSpeed = isBoostActive ? 0.28 : 0.12;
+                let currentSpeed = isBoostActive ? 16.0 : 7.5;
 
-                let nextX = snailGroup.position.x + (moveX * currentSpeed);
-                let nextZ = snailGroup.position.z + (moveZ * currentSpeed);
+                let nextX = snailGroup.position.x + (moveX * currentSpeed * delta);
+                let nextZ = snailGroup.position.z + (moveZ * currentSpeed * delta);
 
-                if (canEntityMoveTo(nextX, snailGroup.position.z, 0.7)) snailGroup.position.x = nextX;
-                if (canEntityMoveTo(snailGroup.position.x, nextZ, 0.7)) snailGroup.position.z = nextZ;
+                if (canEntityMoveTo(nextX, snailGroup.position.z, 0.65)) snailGroup.position.x = nextX;
+                if (canEntityMoveTo(snailGroup.position.x, nextZ, 0.65)) snailGroup.position.z = nextZ;
 
                 if (moveX !== 0 || moveZ !== 0) {
                     snailGroup.rotation.y = Math.atan2(moveX, moveZ);
                 }
             }
 
-            reflectiveShield.rotation.y += isBoostActive ? 0.08 : 0.02;
+            reflectiveShield.rotation.y += (isBoostActive ? 4.8 : 1.2) * delta;
 
             let nextBellX = bellGroup.position.x + bellVelocity.x;
             let nextBellZ = bellGroup.position.z + bellVelocity.z;
@@ -564,7 +567,7 @@
             } else {
                 bellGroup.position.z = nextBellZ;
             }
-            bellGroup.rotation.y += 0.03;
+            bellGroup.rotation.y += 1.8 * delta;
 
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 5.0; 
@@ -584,8 +587,8 @@
                 } else if (distToTarget > 0.1) {
                     dir.normalize();
 
-                    let stepX = en.mesh.position.x + dir.x * en.speed;
-                    let stepZ = en.mesh.position.z + dir.z * en.speed;
+                    let stepX = en.mesh.position.x + dir.x * en.speed * delta;
+                    let stepZ = en.mesh.position.z + dir.z * en.speed * delta;
 
                     let moved = false;
 
@@ -620,14 +623,14 @@
                         bullet.position.y = 1.0;
                         
                         scene.add(bullet);
-                        bullets.push({ mesh: bullet, dir: shootDir, speed: 0.2, bounces: 0 });
+                        bullets.push({ mesh: bullet, dir: shootDir, speed: 12.0, bounces: 0 });
                     }
                 }
             });
 
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, b.speed);
+                b.mesh.position.addScaledVector(b.dir, b.speed * delta);
 
                 let bulletBox = new THREE.Box3().setFromObject(b.mesh);
                 let bulletRemoved = false;
@@ -714,4 +717,4 @@
         });
     </script>
 </body>
-</html> 
+</html>
