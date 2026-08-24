@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snail Rescue: 3D Asset Edition</title>
+    <title>Snail Rescue: 3D Liberty Bell Edition</title>
     <style>
         body {
             margin: 0;
@@ -66,6 +66,12 @@
         .stat-value {
             font-weight: bold;
             color: #ff007f;
+        }
+
+        #status-msg {
+            color: #ffea00;
+            font-weight: bold;
+            display: none;
         }
 
         #controls-hint {
@@ -169,6 +175,7 @@
     <div id="ui-layer">
         <div id="top-hud" class="hud-panel">
             <div id="title">SNAIL RESCUE</div>
+            <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
             <div id="stats">
                 <div class="stat-item">Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
             </div>
@@ -185,14 +192,15 @@
     <script>
         // =========================================================
         // ASSET URL CONFIGURATION
-        // Replace these image and GLTF file paths with your exact links:
+        // Insert your model and texture links here:
         // =========================================================
         const ASSET_URLS = {
             wallTexture: 'path/to/your/wall_texture.jpg',
             floorTexture: 'path/to/your/floor_texture.jpg',
             playerModel: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb',
             babyModel: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb',
-            guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'
+            guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb',
+            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb' // <-- Liberty Bell Model URL
         };
 
         const MAZE_SIZE = 11;
@@ -202,6 +210,10 @@
 
         let scene, camera, renderer;
         let snailGroup;
+        let bellGroup, bellVelocity = { x: 0.03, z: 0.03 };
+        let isFrozen = false;
+        let freezeTimer = 0;
+
         let keys = {};
         let babies = [];
         let guards = [];
@@ -256,6 +268,7 @@
             createPlayer();
             spawnBabies();
             spawnGuards();
+            spawnLibertyBell(); // <-- Restored Liberty Bell Setup
 
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
@@ -269,7 +282,6 @@
             animate();
         }
 
-        // Load image files or fall back safely if files are missing
         function loadTextureSafely(url, isFloor = false) {
             return textureLoader.load(
                 url,
@@ -279,7 +291,7 @@
                     tex.repeat.set(isFloor ? 10 : 1, isFloor ? 10 : 1);
                 },
                 undefined,
-                () => console.warn(`Texture failed to load from ${url}. Standard fallback used.`)
+                () => console.warn(`Texture fallback used for ${url}`)
             );
         }
 
@@ -318,7 +330,6 @@
             scene.add(snailGroup);
             snailGroup.position.set(-18, 0, 12);
 
-            // Import Player 3D Model
             gltfLoader.load(
                 ASSET_URLS.playerModel,
                 (gltf) => {
@@ -327,13 +338,41 @@
                     snailGroup.add(model);
                 },
                 undefined,
-                (err) => {
-                    console.warn("Player GLTF model link not found. Using fallback mesh.");
-                    const fallbackGeo = new THREE.ConeGeometry(0.8, 1.4, 8);
-                    const fallbackMat = new THREE.MeshStandardMaterial({ color: 0xff007f });
-                    const fallbackMesh = new THREE.Mesh(fallbackGeo, fallbackMat);
+                () => {
+                    const fallbackMesh = new THREE.Mesh(
+                        new THREE.ConeGeometry(0.8, 1.4, 8),
+                        new THREE.MeshStandardMaterial({ color: 0xff007f })
+                    );
                     fallbackMesh.rotation.x = Math.PI / 3;
                     snailGroup.add(fallbackMesh);
+                }
+            );
+        }
+
+        // --- Restored Liberty Bell Mesh & Light Setup ---
+        function spawnLibertyBell() {
+            bellGroup = new THREE.Group();
+            bellGroup.position.set(0, 1.2, 0);
+            scene.add(bellGroup);
+
+            // Neon Point Light attached to Bell
+            const bellLight = new THREE.PointLight(0x00ffff, 2, 8);
+            bellLight.position.set(0, 0.5, 0);
+            bellGroup.add(bellLight);
+
+            gltfLoader.load(
+                ASSET_URLS.bellModel,
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(0.6, 0.6, 0.6);
+                    bellGroup.add(model);
+                },
+                undefined,
+                () => {
+                    // Fallback Bell geometry if GLTF is missing
+                    const bellMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x004455, roughness: 0.2 });
+                    const fallbackBell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.7, 1.2, 12), bellMat);
+                    bellGroup.add(fallbackBell);
                 }
             );
         }
@@ -350,15 +389,14 @@
                 babyGroup.position.set(pos.x, 0, pos.z);
                 scene.add(babyGroup);
 
-                // Indicator ring
-                const ringGeo = new THREE.RingGeometry(0.5, 0.7, 16);
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
+                const ring = new THREE.Mesh(
+                    new THREE.RingGeometry(0.5, 0.7, 16),
+                    new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
+                );
                 ring.rotation.x = Math.PI / 2;
                 ring.position.y = 0.05;
                 babyGroup.add(ring);
 
-                // Import Baby 3D Model
                 gltfLoader.load(
                     ASSET_URLS.babyModel,
                     (gltf) => {
@@ -435,22 +473,56 @@
             if (isGameOver) return;
             requestAnimationFrame(animate);
 
-            if (keys['a'] || keys['arrowleft']) snailGroup.rotation.y += ROT_SPEED;
-            if (keys['d'] || keys['arrowright']) snailGroup.rotation.y -= ROT_SPEED;
-
-            let moveDistance = 0;
-            if (keys['w'] || keys['arrowup']) moveDistance = SPEED;
-            if (keys['s'] || keys['arrowdown']) moveDistance = -SPEED / 2;
-
-            if (moveDistance !== 0) {
-                const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
-                const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
-
-                if (!checkWallCollision({ x: nextX, z: snailGroup.position.z })) snailGroup.position.x = nextX;
-                if (!checkWallCollision({ x: snailGroup.position.x, z: nextZ })) snailGroup.position.z = nextZ;
+            // --- Freeze Timer Logic ---
+            if (isFrozen) {
+                freezeTimer -= 16;
+                if (freezeTimer <= 0) {
+                    isFrozen = false;
+                    document.getElementById('status-msg').style.display = 'none';
+                }
             }
 
-            // World-Space Follow Camera
+            // --- Player Movement (Disabled when frozen) ---
+            if (!isFrozen) {
+                if (keys['a'] || keys['arrowleft']) snailGroup.rotation.y += ROT_SPEED;
+                if (keys['d'] || keys['arrowright']) snailGroup.rotation.y -= ROT_SPEED;
+
+                let moveDistance = 0;
+                if (keys['w'] || keys['arrowup']) moveDistance = SPEED;
+                if (keys['s'] || keys['arrowdown']) moveDistance = -SPEED / 2;
+
+                if (moveDistance !== 0) {
+                    const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
+                    const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
+
+                    if (!checkWallCollision({ x: nextX, z: snailGroup.position.z })) snailGroup.position.x = nextX;
+                    if (!checkWallCollision({ x: snailGroup.position.x, z: nextZ })) snailGroup.position.z = nextZ;
+                }
+            }
+
+            // --- Liberty Bell Bouncing & Proximity Logic ---
+            if (bellGroup) {
+                bellGroup.rotation.y += 0.02;
+
+                const nextBellX = bellGroup.position.x + bellVelocity.x;
+                const nextBellZ = bellGroup.position.z + bellVelocity.z;
+
+                // Wall bouncing check for Bell
+                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
+                else bellGroup.position.x = nextBellX;
+
+                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
+                else bellGroup.position.z = nextBellZ;
+
+                // Player proximity check (triggers freeze)
+                if (!isFrozen && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
+                    isFrozen = true;
+                    freezeTimer = 2500; // Freeze player for 2.5 seconds
+                    document.getElementById('status-msg').style.display = 'block';
+                }
+            }
+
+            // --- World-Space Follow Camera ---
             const cameraDistance = 5.0;
             const cameraHeight = 3.5;
 
