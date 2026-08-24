@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue: GPS & 3D Liberty Bell Edition</title>
+    <title>Snail Rescue: Guard Shooting & Fixed Collision Edition</title>
     <style>
         body {
             margin: 0;
@@ -105,11 +105,11 @@
             color: #ff007f;
         }
 
-        /* Mobile Touch Controls */
+        /* Shifted Touch Controls - Inward & Away from Navigation Bar */
         #touch-controls {
             position: absolute;
-            bottom: 20px;
-            left: 15px;
+            bottom: 60px; /* Shifted up off bottom nav bar */
+            left: 45px;   /* Shifted right towards center */
             width: 150px;
             height: 150px;
             pointer-events: auto;
@@ -237,7 +237,7 @@
         let isGameOver = false;
 
         let keys = { w: false, a: false, s: false, d: false };
-        let babies = [], guards = [], walls = [];
+        let babies = [], guards = [], projectiles = [], walls = [];
 
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
@@ -392,7 +392,11 @@
         }
 
         function spawnGuards() {
-            const positions = [{ x: 0, z: -8 }, { x: 8, z: 0 }];
+            const positions = [
+                { x: 0, z: -8, velX: 0.04, velZ: 0 },
+                { x: 8, z: 0, velX: 0, velZ: 0.04 }
+            ];
+
             positions.forEach(pos => {
                 const guardGroup = new THREE.Group();
                 guardGroup.position.set(pos.x, 0, pos.z);
@@ -413,12 +417,28 @@
 
                 guards.push({
                     mesh: guardGroup,
-                    dir: 1,
-                    axis: pos.x === 0 ? 'z' : 'x',
-                    min: pos.x === 0 ? -12 : 2,
-                    max: pos.x === 0 ? -4 : 12
+                    velX: pos.velX,
+                    velZ: pos.velZ,
+                    lastShot: 0
                 });
             });
+        }
+
+        function shootLaser(guardPos) {
+            if (!snailGroup) return;
+
+            const laserGeo = new THREE.SphereGeometry(0.2, 8, 8);
+            const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const laserMesh = new THREE.Mesh(laserGeo, laserMat);
+
+            laserMesh.position.set(guardPos.x, 0.8, guardPos.z);
+            scene.add(laserMesh);
+
+            const dir = new THREE.Vector3()
+                .subVectors(snailGroup.position, guardPos)
+                .normalize();
+
+            projectiles.push({ mesh: laserMesh, dir: dir, life: 120 });
         }
 
         function bindTouchControls() {
@@ -439,13 +459,13 @@
             window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         }
 
-        function checkWallCollision(newPos) {
-            const playerBox = new THREE.Box3();
-            playerBox.min.set(newPos.x - 0.4, 0, newPos.z - 0.4);
-            playerBox.max.set(newPos.x + 0.4, 1.5, newPos.z + 0.4);
+        function checkWallCollision(newPos, radius = 0.4) {
+            const box = new THREE.Box3();
+            box.min.set(newPos.x - radius, 0, newPos.z - radius);
+            box.max.set(newPos.x + radius, 1.5, newPos.z + radius);
 
             for (let wallBox of walls) {
-                if (playerBox.intersectsBox(wallBox)) return true;
+                if (box.intersectsBox(wallBox)) return true;
             }
             return false;
         }
@@ -518,9 +538,12 @@
             }
         }
 
-                function animate() {
+        
+        function animate() {
             if (isGameOver) return;
             requestAnimationFrame(animate);
+
+            const now = Date.now();
 
             if (isFrozen) {
                 freezeTimer -= 16;
@@ -565,7 +588,59 @@
                 }
             }
 
-            // Fixed Third-Person Camera Offset
+            // Fixed Dynamic Guard Patrol & Bouncing Off Walls
+            guards.forEach(guard => {
+                const nextX = guard.mesh.position.x + guard.velX;
+                const nextZ = guard.mesh.position.z + guard.velZ;
+
+                if (checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) {
+                    guard.velX *= -1;
+                } else {
+                    guard.mesh.position.x = nextX;
+                }
+
+                if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.5)) {
+                    guard.velZ *= -1;
+                } else {
+                    guard.mesh.position.z = nextZ;
+                }
+
+                // Guard Shooting Logic
+                if (snailGroup) {
+                    const distToPlayer = guard.mesh.position.distanceTo(snailGroup.position);
+                    if (distToPlayer < 12 && (now - guard.lastShot > 1800)) {
+                        shootLaser(guard.mesh.position);
+                        guard.lastShot = now;
+                    }
+                }
+
+                // Direct Touch Gotcha
+                if (snailGroup && snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
+                    endGame(false, "GOTCHA!");
+                }
+            });
+
+            // Projectile Physics & Hit Logic
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i];
+                proj.mesh.position.addScaledVector(proj.dir, 0.25);
+                proj.life--;
+
+                if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) {
+                    scene.remove(proj.mesh);
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.8) {
+                    scene.remove(proj.mesh);
+                    projectiles.splice(i, 1);
+                    endGame(false, "GOTCHA!");
+                    return;
+                }
+            }
+
+            // Camera Tracking
             if (snailGroup) {
                 const camDistance = 8.0;
                 const camHeight = 5.0;
@@ -590,25 +665,11 @@
                 }
             });
 
-            guards.forEach(guard => {
-                if (guard.axis === 'z') {
-                    guard.mesh.position.z += 0.04 * guard.dir;
-                    if (guard.mesh.position.z > guard.max || guard.mesh.position.z < guard.min) guard.dir *= -1;
-                } else {
-                    guard.mesh.position.x += 0.04 * guard.dir;
-                    if (guard.mesh.position.x > guard.max || guard.mesh.position.x < guard.min) guard.dir *= -1;
-                }
-
-                if (snailGroup && snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
-                    endGame(false);
-                }
-            });
-
             updateGPS();
             renderer.render(scene, camera);
         }
 
-        function endGame(isWin) {
+        function endGame(isWin, customMsg) {
             isGameOver = true;
             const modal = document.getElementById('game-over-modal');
             const title = document.getElementById('modal-title');
@@ -619,9 +680,9 @@
                 title.style.color = "#00ffcc";
                 msg.innerText = "You rescued all baby snails!";
             } else {
-                title.innerText = "CAUGHT BY GUARD!";
+                title.innerText = customMsg || "CAUGHT BY GUARD!";
                 title.style.color = "#ff007f";
-                msg.innerText = "A guard spotted you!";
+                msg.innerText = "A guard spotted and blasted you!";
             }
             modal.style.display = 'flex';
         }
