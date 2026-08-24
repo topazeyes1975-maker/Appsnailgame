@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue: Expanded HUD & AI Edition</title>
+    <title>Snail Rescue: Virtual Joystick & Wall Texture Fix</title>
     <style>
         body {
             margin: 0;
@@ -123,44 +123,35 @@
             color: #ff007f;
         }
 
-        #touch-controls {
+        /* Virtual Joystick Container (Positioned inward off navigation bar) */
+        #joystick-zone {
             position: absolute;
             bottom: 60px;
-            left: 45px;
-            width: 150px;
-            height: 150px;
+            left: 55px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 255, 204, 0.1);
+            border: 2px solid rgba(0, 255, 204, 0.5);
+            border-radius: 50%;
+            touch-action: none;
             pointer-events: auto;
-        }
-
-        .dpad-container {
-            display: grid;
-            grid-template-columns: repeat(3, 45px);
-            grid-template-rows: repeat(3, 45px);
-            gap: 5px;
-        }
-
-        .btn-touch {
-            background: rgba(0, 255, 204, 0.25);
-            border: 2px solid #00ffcc;
-            border-radius: 10px;
-            color: #00ffcc;
-            font-size: 18px;
-            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
-            touch-action: manipulation;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
         }
 
-        .btn-touch:active {
-            background: rgba(0, 255, 204, 0.7);
-            transform: scale(0.92);
+        #joystick-stick {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 204, 0.6);
+            border: 2px solid #00ffcc;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.8);
+            pointer-events: none;
+            transform: translate(0px, 0px);
         }
-
-        #btn-up { grid-column: 2; grid-row: 1; }
-        #btn-left { grid-column: 1; grid-row: 2; }
-        #btn-right { grid-column: 3; grid-row: 2; }
-        #btn-down { grid-column: 2; grid-row: 3; }
 
         #game-over-modal {
             position: absolute;
@@ -228,13 +219,8 @@
             </div>
         </div>
 
-        <div id="touch-controls">
-            <div class="dpad-container">
-                <div class="btn-touch" id="btn-up">▲</div>
-                <div class="btn-touch" id="btn-left">◀</div>
-                <div class="btn-touch" id="btn-right">▶</div>
-                <div class="btn-touch" id="btn-down">▼</div>
-            </div>
+        <div id="joystick-zone">
+            <div id="joystick-stick"></div>
         </div>
     </div>
 
@@ -247,18 +233,18 @@
 
     <script>
         const ASSETS = {
-            wallTex: '1787589407750~2.jpg',
-            floorTex: '1785671824766.png',
-            playerModel: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb',
-            babyModel: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb',
-            guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb',
-            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'
+            wallTex: 'path/to/wall_texture.jpg',
+            floorTex: 'path/to/floor_texture.jpg',
+            playerModel: 'path/to/player_snail.glb',
+            babyModel: 'path/to/baby_snail.glb',
+            guardModel: 'path/to/guard_enemy.glb',
+            bellModel: 'path/to/liberty_bell.glb'
         };
 
         const MAZE_SIZE = 11;
         const CELL_SIZE = 4;
-        const SPEED = 0.16;       /* Increased Player Movement Speed */
-        const GUARD_SPEED = 0.08; /* Increased Guard Speed */
+        const SPEED = 0.18;
+        const GUARD_SPEED = 0.08;
         const ROT_SPEED = 0.06;
 
         let scene, camera, renderer;
@@ -270,6 +256,7 @@
         let playerHealth = 100;
         let isGameOver = false;
 
+        let joystickVector = { x: 0, y: 0 };
         let keys = { w: false, a: false, s: false, d: false };
         let babies = [], guards = [], projectiles = [], walls = [];
 
@@ -317,7 +304,7 @@
             spawnBabies();
             spawnGuards();
 
-            bindTouchControls();
+            bindJoystick();
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -325,27 +312,48 @@
 
         function createFallbackTexture(c1, c2) {
             const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
+            canvas.width = 256; canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = c1; ctx.fillRect(0,0,128,128);
-            ctx.fillStyle = c2; ctx.fillRect(0,0,64,64); ctx.fillRect(64,64,64,64);
+            ctx.fillStyle = c1; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = c2; ctx.fillRect(0, 0, 128, 128); ctx.fillRect(128, 128, 128, 128);
+            ctx.strokeStyle = '#00ffcc'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, 256, 256);
             return new THREE.CanvasTexture(canvas);
         }
 
         function buildMaze() {
             const floorTex = textureLoader.load(ASSETS.floorTex, 
-                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10,10); },
+                (t) => { 
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping; 
+                    t.repeat.set(10, 10); 
+                    t.needsUpdate = true;
+                },
                 undefined,
                 () => createFallbackTexture('#0f0f2d', '#1a1a40')
             );
 
-            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex });
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
             const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x223355, roughness: 0.3 });
+            /* Fixed Wall Texture Implementation */
+            const wallTex = textureLoader.load(ASSETS.wallTex, 
+                (t) => {
+                    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+                    t.repeat.set(1, 1);
+                    t.needsUpdate = true;
+                },
+                undefined,
+                () => createFallbackTexture('#1a233a', '#223355')
+            );
+
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                map: wallTex, 
+                roughness: 0.4,
+                metalness: 0.1
+            });
+
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
 
@@ -363,13 +371,13 @@
 
         function createPlayer() {
             snailGroup = new THREE.Group();
-            snailGroup.position.set(-16, 0.4, 12); /* Lifted clear of the ground plane */
+            snailGroup.position.set(-16, 0.4, 12);
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
                 const model = gltf.scene;
                 const box = new THREE.Box3().setFromObject(model);
-                model.position.y = -box.min.y; /* Align bottom precisely with floor */
+                model.position.y = -box.min.y;
                 model.scale.set(0.8, 0.8, 0.8);
                 snailGroup.add(model);
             }, undefined, () => {
@@ -419,7 +427,6 @@
                     model.scale.set(0.4, 0.4, 0.4);
                     babyGroup.add(model);
                 }, undefined, () => {
-                    /* Scaled visual fallback for missing custom GLB assets */
                     const shell = new THREE.Mesh(
                         new THREE.SphereGeometry(0.35, 12, 12),
                         new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 })
@@ -475,6 +482,89 @@
             });
         }
 
+        /* Virtual Analog Joystick Logic */
+        function bindJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const stick = document.getElementById('joystick-stick');
+            const maxRadius = 35;
+            let activeTouchId = null;
+
+            function handleMove(clientX, clientY) {
+                const rect = zone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                let deltaX = clientX - centerX;
+                let deltaY = clientY - centerY;
+                const dist = Math.hypot(deltaX, deltaY);
+
+                if (dist > maxRadius) {
+                    deltaX = (deltaX / dist) * maxRadius;
+                    deltaY = (deltaY / dist) * maxRadius;
+                }
+
+                stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                joystickVector.x = deltaX / maxRadius;
+                joystickVector.y = deltaY / maxRadius;
+            }
+
+            function handleEnd() {
+                stick.style.transform = `translate(0px, 0px)`;
+                joystickVector.x = 0;
+                joystickVector.y = 0;
+                activeTouchId = null;
+            }
+
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                activeTouchId = touch.identifier;
+                handleMove(touch.clientX, touch.clientY);
+            });
+
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === activeTouchId) {
+                        handleMove(touch.clientX, touch.clientY);
+                    }
+                }
+            });
+
+            zone.addEventListener('touchend', handleEnd);
+            zone.addEventListener('touchcancel', handleEnd);
+
+            // Desktop Mouse Support
+            let isMouseDown = false;
+            zone.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                handleMove(e.clientX, e.clientY);
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isMouseDown) handleMove(e.clientX, e.clientY);
+            });
+            window.addEventListener('mouseup', () => {
+                if (isMouseDown) {
+                    isMouseDown = false;
+                    handleEnd();
+                }
+            });
+
+            // Keyboard Backup Controls
+            window.addEventListener('keydown', e => {
+                if (['w','ArrowUp'].includes(e.key)) keys.w = true;
+                if (['s','ArrowDown'].includes(e.key)) keys.s = true;
+                if (['a','ArrowLeft'].includes(e.key)) keys.a = true;
+                if (['d','ArrowRight'].includes(e.key)) keys.d = true;
+            });
+            window.addEventListener('keyup', e => {
+                if (['w','ArrowUp'].includes(e.key)) keys.w = false;
+                if (['s','ArrowDown'].includes(e.key)) keys.s = false;
+                if (['a','ArrowLeft'].includes(e.key)) keys.a = false;
+                if (['d','ArrowRight'].includes(e.key)) keys.d = false;
+            });
+        }
+
         function shootLaser(guardPos) {
             if (!snailGroup) return;
 
@@ -505,24 +595,6 @@
             }
         }
 
-        function bindTouchControls() {
-            const bindBtn = (id, key) => {
-                const btn = document.getElementById(id);
-                btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
-                btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-                btn.addEventListener('mousedown', () => { keys[key] = true; });
-                btn.addEventListener('mouseup', () => { keys[key] = false; });
-            };
-
-            bindBtn('btn-up', 'w');
-            bindBtn('btn-down', 's');
-            bindBtn('btn-left', 'a');
-            bindBtn('btn-right', 'd');
-
-            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-        }
-
         function checkWallCollision(newPos, radius = 0.4) {
             const box = new THREE.Box3();
             box.min.set(newPos.x - radius, 0, newPos.z - radius);
@@ -538,8 +610,10 @@
             const gpsCanvas = document.getElementById('gps-canvas');
             const ctx = gpsCanvas.getContext('2d');
             ctx.clearRect(0, 0, 100, 100);
-
-            const mapScale = 2.0; 
+// Automatically fits any grid size neatly into the 100px radar canvas
+const currentMazeSize = mazeGrid.length; 
+const mapScale = 80 / (currentMazeSize * CELL_SIZE); 
+                
             const centerX = 50;
             const centerY = 50;
 
@@ -617,14 +691,22 @@
             }
 
             if (!isFrozen && snailGroup) {
-                if (keys['a']) snailGroup.rotation.y += ROT_SPEED;
-                if (keys['d']) snailGroup.rotation.y -= ROT_SPEED;
+                /* Combine Joystick Input with Keyboard Input */
+                let inputX = joystickVector.x;
+                let inputY = -joystickVector.y; // Invert Y for forward direction
 
-                let moveDistance = 0;
-                if (keys['w']) moveDistance = SPEED;
-                if (keys['s']) moveDistance = -SPEED / 2;
+                if (keys.a) inputX -= 1.0;
+                if (keys.d) inputX += 1.0;
+                if (keys.w) inputY += 1.0;
+                if (keys.s) inputY -= 1.0;
 
-                if (moveDistance !== 0) {
+                // Turn Snail smoothly toward direction of movement or apply turn
+                if (Math.abs(inputX) > 0.1) {
+                    snailGroup.rotation.y -= inputX * ROT_SPEED;
+                }
+
+                if (Math.abs(inputY) > 0.1) {
+                    const moveDistance = inputY * SPEED;
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
                     const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
 
@@ -651,7 +733,7 @@
                 }
             }
 
-            /* Active Guard Pursuit Logic */
+            /* Guards Pursuit Logic */
             guards.forEach(guard => {
                 if (snailGroup) {
                     const dirToPlayer = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
@@ -684,7 +766,7 @@
                 }
             });
 
-            /* Projectile Calculations */
+            /* Projectile Physics */
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 0.3);
@@ -704,7 +786,7 @@
                 }
             }
 
-            /* Camera Positioning */
+            /* Dynamic Third-Person Camera Tracking */
             if (snailGroup) {
                 const camDistance = 8.0;
                 const camHeight = 5.0;
@@ -745,7 +827,6 @@
                 title.style.color = "#00ffcc";
                 msg.innerText = "You rescued all baby snails!";
 
-                /* Calculate 3-Star Rating based on remaining health */
                 let stars = 1;
                 if (playerHealth >= 80) stars = 3;
                 else if (playerHealth >= 40) stars = 2;
