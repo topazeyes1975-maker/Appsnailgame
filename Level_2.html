@@ -2,696 +2,528 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>The Chaos Before the Savior: Level 2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Rescue: 3D Asset Edition</title>
     <style>
-        * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; overflow: hidden; background: #050508; font-family: sans-serif; width: 100vw; height: 100vh; }
-        
-        #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 14px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.4; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
-        
-        .health-bar-container { width: 140px; height: 12px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
-        #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
-
-        .joystick { position: absolute; bottom: 30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
-        #left-stick { left: 30px; }
-        #right-stick { right: 30px; }
-        .stick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.4); border-radius: 50%; pointer-events: none; }
-    
-
-        #status-screen { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100vw; 
-            height: 100vh; 
-            background: rgba(5,5,8,0.92); 
-            display: none; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            color: #00ffcc; 
-            font-size: 26px; 
-            font-weight: bold; 
-            z-index: 1000; 
-            text-align: center; 
-            text-shadow: 0 0 10px #00ffcc; 
-            pointer-events: auto;
-        }
-        
-        #star-display {
-            font-size: 36px;
-            margin: 15px 0;
-            color: #ffcc00;
-            text-shadow: 0 0 10px #ffcc00;
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
         }
 
-        #status-screen button { 
-            margin-top: 25px; 
-            padding: 16px 32px; 
-            background: #00ffcc; 
-            border: none; 
-            color: #050508; 
-            font-size: 20px; 
-            font-weight: bold; 
-            border-radius: 10px; 
-            cursor: pointer; 
-            box-shadow: 0 0 15px #00ffcc;
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud-panel {
+            background: rgba(15, 15, 30, 0.75);
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 8px;
+            padding: 12px 20px;
+            color: #e0f7fc;
+            font-size: 16px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             pointer-events: auto;
-            touch-action: manipulation;
+        }
+
+        #top-hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #title {
+            font-weight: bold;
+            font-size: 20px;
+            letter-spacing: 1px;
+            color: #00ffcc;
+            text-shadow: 0 0 8px rgba(0,255,204,0.6);
+        }
+
+        #stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #ff007f;
+        }
+
+        #controls-hint {
+            align-self: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            opacity: 0.8;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        #game-over-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 25, 0.95);
+            border: 2px solid #00ffcc;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            color: white;
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            pointer-events: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
+            min-width: 280px;
+        }
+
+        #game-over-modal h1 {
+            margin: 0;
+            color: #00ffcc;
+            font-size: 28px;
+            text-shadow: 0 0 10px rgba(0,255,204,0.5);
+        }
+
+        #btn-restart {
+            background: #ff007f;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #btn-restart:hover {
+            background: #ff3399;
+            box-shadow: 0 0 12px rgba(255,0,127,0.8);
+            transform: scale(1.05);
+        }
+
+        #loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #050510;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ffcc;
+            font-size: 24px;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0,255,204,0.1);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border-left-color: #00ffcc;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body>
-    <div id="ui">
-        Objective: Level 2 - Avoid Guards, Rescue Babies & Escape!<br>
-        Babies: <span id="score">0</span>/2 | Status: <span id="player-status">Active</span><br>
-        Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
-        Time Left: <span id="timer">60</span>
-    </div>
-    
-    <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
-    <div id="right-stick" class="joystick"><div id="right-knob" class="stick-knob"></div></div>
-
-    <div id="status-screen">
-        <div id="status-text">LEVEL 2 COMPLETE</div>
-        <div id="star-display"></div>
-        <button id="restart-btn">Play Again</button>
-    </div>
-
+    <!-- Three.js & GLTF Loader Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div>Loading 3D Models & Textures...</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="top-hud" class="hud-panel">
+            <div id="title">SNAIL RESCUE</div>
+            <div id="stats">
+                <div class="stat-item">Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
+            </div>
+        </div>
+        <div id="controls-hint">Use <b>W A S D</b> or <b>Arrow Keys</b> to Move & Rotate</div>
+    </div>
+
+    <div id="game-over-modal">
+        <h1 id="modal-title">MISSION COMPLETE!</h1>
+        <p id="modal-msg">You rescued all the baby snails safely!</p>
+        <button id="btn-restart" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
 
     <script>
-        document.getElementById('restart-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            location.reload();
-        });
-        document.getElementById('restart-btn').addEventListener('touchend', function(e) {
-            e.preventDefault();
-            location.reload();
-        });
+        // =========================================================
+        // ASSET URL CONFIGURATION
+        // Replace these image and GLTF file paths with your exact links:
+        // =========================================================
+        const ASSET_URLS = {
+            wallTexture: 'path/to/your/wall_texture.jpg',
+            floorTexture: 'path/to/your/floor_texture.jpg',
+            playerModel: 'path/to/your/player_snail.glb',
+            babyModel: 'path/to/your/baby_snail.glb',
+            guardModel: 'path/to/your/guard_enemy.glb'
+        };
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050508);
+        const MAZE_SIZE = 11;
+        const CELL_SIZE = 4;
+        const SPEED = 0.08;
+        const ROT_SPEED = 0.04;
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2.2, -2.8);
-        camera.lookAt(0, 1.2, 4.0);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        document.body.appendChild(renderer.domElement);
+        let scene, camera, renderer;
+        let snailGroup;
+        let keys = {};
+        let babies = [];
+        let guards = [];
+        let walls = [];
+        let rescuedCount = 0;
+        const TOTAL_BABIES = 3;
+        let isGameOver = false;
 
-        const clock = new THREE.Clock();
-
-        const loader = new THREE.GLTFLoader();
+        const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
-        textureLoader.setCrossOrigin('anonymous');
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
-        dirLight.position.set(10, 20, 10);
-        scene.add(dirLight);
-
-        const floorTexture = textureLoader.load('1785671824766.png', function(tex) {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(8, 8);
-            tex.needsUpdate = true;
-        });
-
-        const floorGeo = new THREE.PlaneGeometry(100, 100);
-        const floorMat = new THREE.MeshStandardMaterial({ 
-            map: floorTexture,
-            color: 0xffffff,
-            roughness: 0.8, 
-            metalness: 0.2 
-        });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.05;
-        scene.add(floor);
-
-        const floorGrid = new THREE.GridHelper(60, 30, 0x00ffcc, 0x1a1a3a);
-        floorGrid.position.y = 0.01;
-        scene.add(floorGrid);
-
-        const homeBaseGroup = new THREE.Group();
-        homeBaseGroup.position.set(-18, 0.02, 18);
-        scene.add(homeBaseGroup);
-
-        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
-        const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
-        homeBaseGroup.add(fallbackBase);
-
-        const wallTexture = textureLoader.load('1785672040480.png', function(tex) {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(2, 1);
-            tex.needsUpdate = true;
-        });
-
-        const obstacleMat = new THREE.MeshStandardMaterial({ 
-            map: wallTexture,
-            color: 0xffffff,
-            roughness: 0.4, 
-            metalness: 0.5 
-        });
-
-        const wallBoundingBoxes = [];
-        const wallMeshes = [];
-
-        function createWall(x, z, width, depth) {
-            const wallGeo = new THREE.BoxGeometry(width, 5.0, depth);
-            const wall = new THREE.Mesh(wallGeo, obstacleMat);
-            wall.position.set(x, 2.5, z);
-            scene.add(wall);
-            wallMeshes.push(wall);
-
-            const edges = new THREE.EdgesGeometry(wallGeo);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00ffcc }));
-            line.position.copy(wall.position);
-            scene.add(line);
-
-            const box = new THREE.Box3().setFromObject(wall);
-            wallBoundingBoxes.push(box);
-        }
-
-        createWall(-1, -22, 44, 2);   
-        createWall(-22, -2, 2, 40);   
-        createWall(21, 2, 2, 40);     
-        createWall(-30, -10, 2, 20);  
-        createWall(0, 22, 44, 2);      
-
-        createWall(-15, -13, 16, 1);   
-        createWall(-1, -7, 30, 0.8);   
-        createWall(-2, -14, 0.8, 14);  
-        createWall(-19, 0, 7, 0.8);    
-        createWall(18, 11, 0.8, 10);   
-        createWall(16, -17.5, 8, 0.8); 
-        createWall(5, -17, 0.8, 8);    
-        createWall(4, -2, 12, 0.8);    
-        createWall(-8, 10, 0.8, 16);   
-        createWall(9, 18, 4, 0.8);     
-        createWall(-16, 6, 0.8, 12);   
-        createWall(-12, 12, 8, 0.8);   
-        createWall(-12, 17.5, 8, 0.8); 
-        createWall(12, 6, 12, 0.8);    
-        createWall(7.5, 13, 0.8, 12);  
-        createWall(11, 14, 8, 0.8);    
-
-        const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
-        const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
-
-        const room1 = new THREE.Mesh(roomGeo, roomMat);
-        room1.position.set(-16, 1.25, -16);
-        scene.add(room1);
-
-        const room2 = new THREE.Mesh(roomGeo, roomMat);
-        room2.position.set(12, 1.25, 10);
-        scene.add(room2);
-
-        const rooms = [];
-
-        const fallbackBabyGeo = new THREE.SphereGeometry(0.6, 16, 16);
-        const fallbackBabyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8 });
-
-        function createFallbackBaby(x, z) {
-            const mesh = new THREE.Mesh(fallbackBabyGeo, fallbackBabyMat);
-            mesh.position.set(x, 0.6, z);
-            scene.add(mesh);
-            return mesh;
-        }
-
-        let babyModelTemplate = null;
-
-        loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
-            babyModelTemplate = gltf.scene;
-            initRoomsWithModels();
-        }, undefined, function (error) {
-            rooms.push({ mesh: room1, babyMesh: createFallbackBaby(-16, -16), rescued: false });
-            rooms.push({ mesh: room2, babyMesh: createFallbackBaby(12, 10), rescued: false });
-        });
-
-        function initRoomsWithModels() {
-            if (!babyModelTemplate) return;
-            
-            const babyModel1 = babyModelTemplate.clone();
-            babyModel1.scale.set(0.5, 0.5, 0.5);
-            babyModel1.position.set(-16, 0.3, -16);
-            scene.add(babyModel1);
-
-            const babyModel2 = babyModelTemplate.clone();
-            babyModel2.scale.set(0.5, 0.5, 0.5);
-            babyModel2.position.set(12, 0.3, 10);
-            scene.add(babyModel2);
-
-            rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
-            rooms.push({ mesh: room2, babyMesh: babyModel2, rescued: false });
-        }
-
-        const bellGroup = new THREE.Group();
-        bellGroup.position.set(0, 0.75, -8);
-        scene.add(bellGroup);
-
-        const fallbackBellGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
-        const fallbackBellMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.6, metalness: 0.8 });
-        const fallbackBell = new THREE.Mesh(fallbackBellGeo, fallbackBellMat);
-        bellGroup.add(fallbackBell);
-
-        loader.load(encodeURI('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'), function (gltf) {
-            bellGroup.remove(fallbackBell);
-            const bellModel = gltf.scene;
-            bellModel.scale.set(0.8, 0.8, 0.8);
-            bellGroup.add(bellModel);
-        }, undefined, function (error) {});
-
-        let bellVelocity = new THREE.Vector3(0.06, 0, 0.05);
-
-        const enemies = [];
-        const bullets = [];
-        const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
-        const bulletMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 1.0 });
-        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff3300, emissiveIntensity: 0.4 });
-
-        const patrolRoutes = [
-            [new THREE.Vector3(-15, 0, -10), new THREE.Vector3(15, 0, -10), new THREE.Vector3(15, 0, -3), new THREE.Vector3(-15, 0, -3)],
-            [new THREE.Vector3(10, 0, -3), new THREE.Vector3(18, 0, -3), new THREE.Vector3(18, 0, 15), new THREE.Vector3(10, 0, 15)],
-            [new THREE.Vector3(-10, 0, 5), new THREE.Vector3(5, 0, 5), new THREE.Vector3(5, 0, 12), new THREE.Vector3(-10, 0, 12)]
+        const mazeGrid = [
+            [1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,1,0,0,0,1],
+            [1,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,1,0,0,0,1,0,1],
+            [1,0,1,0,1,1,1,0,1,0,1],
+            [1,0,1,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1]
         ];
 
-        for (let i = 0; i < patrolRoutes.length; i++) {
-            const enemyGroup = new THREE.Group();
-            const route = patrolRoutes[i];
-            enemyGroup.position.copy(route[0]);
-            scene.add(enemyGroup);
+        function init() {
+            const container = document.getElementById('canvas-container');
 
-            const fallbackEnemy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), enemyMat);
-            enemyGroup.add(fallbackEnemy);
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.FogExp2(0x0a0a1a, 0.03);
 
-            loader.load(encodeURI('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb'), function (gltf) {
-                enemyGroup.remove(fallbackEnemy);
-                const humanModel = gltf.scene;
-                humanModel.position.y = 0.9;
-                humanModel.scale.set(0.8, 0.8, 0.8);
-                enemyGroup.add(humanModel);
-            }, undefined, function (error) {});
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            scene.add(camera);
 
-            enemies.push({ 
-                mesh: enemyGroup, 
-                route: route,
-                targetIndex: 1,
-                speed: 3.3,
-                shootCooldown: 0
-            });
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x00ffff, 0.8);
+            dirLight.position.set(20, 40, 20);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            buildMaze();
+            createPlayer();
+            spawnBabies();
+            spawnGuards();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+            document.getElementById('loading-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+            }, 500);
+
+            animate();
         }
 
-        const snailGroup = new THREE.Group();
-        scene.add(snailGroup);
-        snailGroup.add(camera);
-        snailGroup.position.set(-18, 0, 12);
-
-        const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
-        const shieldMat = new THREE.MeshPhysicalMaterial({ 
-            color: 0x00ffff, 
-            transparent: true, 
-            opacity: 0.45, 
-            roughness: 0.1, 
-            metalness: 0.9,
-            clearcoat: 1.0, 
-            clearcoatRoughness: 0.1,
-            emissive: 0x00aaff,
-            emissiveIntensity: 0.5
-        });
-        const reflectiveShield = new THREE.Mesh(shieldGeo, shieldMat);
-        reflectiveShield.position.y = 0.8;
-        snailGroup.add(reflectiveShield);
-
-        const fallbackMainGeo = new THREE.BoxGeometry(1, 1, 1);
-        const fallbackMainMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc });
-        const fallbackMain = new THREE.Mesh(fallbackMainGeo, fallbackMainMat);
-        fallbackMain.position.y = 0.5;
-        snailGroup.add(fallbackMain);
-
-        loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
-            snailGroup.remove(fallbackMain);
-            const character = gltf.scene;
-            character.scale.set(0.8, 0.8, 0.8);
-            character.position.y = 0.9; 
-            snailGroup.add(character);
-        }, undefined, function (error) {});
-
-        let moveX = 0, moveZ = 0;
-        let isShieldActive = false;
-        let isBoostActive = false; 
-        let shieldUsedEver = false; 
-        let tookDamage = false;      
-        let score = 0;
-        let health = 100;
-        let carriedBabies = [];
-        let timeLeft = 60;
-        let freezeTimer = 0;
-        let gameOver = false;
-
-        const raycaster = new THREE.Raycaster();
-
-        setInterval(() => {
-            if (!gameOver && timeLeft > 0) {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-                if (timeLeft === 0 && score < 2) {
-                    endGame("TIME UP - MISSION FAILED");
-                }
-            }
-        }, 1000);
-
-        function setupJoystick(stickId, knobId, callback) {
-            const stick = document.getElementById(stickId);
-            const knob = document.getElementById(knobId);
-            const maxDist = 28;
-            let activeTouchId = null;
-
-            stick.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                const touch = e.changedTouches[0];
-                activeTouchId = touch.identifier;
-                updateStick(touch);
-            }, { passive: false });
-
-            window.addEventListener('touchmove', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === activeTouchId) {
-                        e.preventDefault();
-                        updateStick(e.changedTouches[i]);
-                    }
-                }
-            }, { passive: false });
-
-            window.addEventListener('touchend', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    if (e.changedTouches[i].identifier === activeTouchId) {
-                        activeTouchId = null;
-                        knob.style.transform = `translate(0px, 0px)`;
-                        callback(0, 0);
-                    }
-                }
-            });
-
-            function updateStick(touch) {
-                const r = stick.getBoundingClientRect();
-                let x = touch.clientX - r.left - (r.width / 2);
-                let y = touch.clientY - r.top - (r.height / 2);
-                const dist = Math.sqrt(x * x + y * y);
-                if (dist > maxDist) { x = (x / dist) * maxDist; y = (y / dist) * maxDist; }
-                knob.style.transform = `translate(${x}px, ${y}px)`;
-                callback(x / maxDist, y / maxDist);
-            }
-        }
-
-        setupJoystick('left-stick', 'left-knob', (x, y) => { moveX = x; moveZ = y; });
-
-        setupJoystick('right-stick', 'right-knob', (x, y) => {
-            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
-                isShieldActive = true;
-                shieldUsedEver = true; 
-                reflectiveShield.scale.set(1.3, 1.3, 1.3);
-
-                if (y > 0.3) {
-                    isBoostActive = true;
-                    shieldMat.color.setHex(0xffaa00);
-                    shieldMat.emissive.setHex(0xffaa00);
-                    shieldMat.emissiveIntensity = 1.2;
-                } else {
-                    isBoostActive = false;
-                    shieldMat.color.setHex(0x00ffff);
-                    shieldMat.emissive.setHex(0x00aaff);
-                    shieldMat.emissiveIntensity = 1.0;
-                }
-            } else {
-                isShieldActive = false;
-                isBoostActive = false;
-                reflectiveShield.scale.set(1.0, 1.0, 1.0);
-                shieldMat.color.setHex(0x00ffff);
-                shieldMat.emissive.setHex(0x00aaff);
-                shieldMat.emissiveIntensity = 0.4;
-            }
-        });
-
-        function updateHealthBar() {
-            const fill = document.getElementById('health-fill');
-            fill.style.width = Math.max(0, health) + '%';
-            fill.style.background = health < 30 ? '#ff3300' : '#00ffcc';
-        }
-
-        function endGame(message) {
-            gameOver = true;
-            document.getElementById('status-text').innerText = message;
-            
-            if (message.includes("VICTORY")) {
-                let stars = 0;
-                if (!shieldUsedEver) stars++; 
-                if (timeLeft >= 20) stars++;   
-                if (!tookDamage) stars++;      
-
-                let starString = "";
-                for (let i = 0; i < 3; i++) {
-                    starString += i < stars ? "⭐ " : "☆ ";
-                }
-                document.getElementById('star-display').innerText = starString;
-            } else {
-                document.getElementById('star-display').innerText = "";
-            }
-
-            document.getElementById('status-screen').style.display = 'flex';
-        }
-
-        function canEntityMoveTo(nextX, nextZ, size) {
-            const box = new THREE.Box3(
-                new THREE.Vector3(nextX - size, 0, nextZ - size),
-                new THREE.Vector3(nextX + size, 2, nextZ + size)
+        // Load image files or fall back safely if files are missing
+        function loadTextureSafely(url, isFloor = false) {
+            return textureLoader.load(
+                url,
+                (tex) => {
+                    tex.wrapS = THREE.RepeatWrapping;
+                    tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(isFloor ? 10 : 1, isFloor ? 10 : 1);
+                },
+                undefined,
+                () => console.warn(`Texture failed to load from ${url}. Standard fallback used.`)
             );
-            for (let wallBox of wallBoundingBoxes) {
-                if (box.intersectsBox(wallBox)) return false;
-            }
-            return true;
         }
 
-        function hasLineOfSight(guardPos, playerPos) {
-            const dir = new THREE.Vector3().subVectors(playerPos, guardPos).normalize();
-            const dist = guardPos.distanceTo(playerPos);
-            
-            raycaster.set(new THREE.Vector3(guardPos.x, 1.0, guardPos.z), dir);
-            const intersects = raycaster.intersectObjects(wallMeshes);
-            
-            if (intersects.length > 0 && intersects[0].distance < dist) {
-                return false;
+        function buildMaze() {
+            const wallTex = loadTextureSafely(ASSET_URLS.wallTexture, false);
+            const floorTex = loadTextureSafely(ASSET_URLS.floorTexture, true);
+
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4 });
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
+
+            const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
+            const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
+
+            for (let r = 0; r < MAZE_SIZE; r++) {
+                for (let c = 0; c < MAZE_SIZE; c++) {
+                    if (mazeGrid[r][c] === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(c * CELL_SIZE - offset, 1.5, r * CELL_SIZE - offset);
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        scene.add(wall);
+                        walls.push(new THREE.Box3().setFromObject(wall));
+                    }
+                }
             }
-            return true;
+        }
+
+        function createPlayer() {
+            snailGroup = new THREE.Group();
+            scene.add(snailGroup);
+            snailGroup.position.set(-18, 0, 12);
+
+            // Import Player 3D Model
+            gltfLoader.load(
+                ASSET_URLS.playerModel,
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(0.8, 0.8, 0.8);
+                    snailGroup.add(model);
+                },
+                undefined,
+                (err) => {
+                    console.warn("Player GLTF model link not found. Using fallback mesh.");
+                    const fallbackGeo = new THREE.ConeGeometry(0.8, 1.4, 8);
+                    const fallbackMat = new THREE.MeshStandardMaterial({ color: 0xff007f });
+                    const fallbackMesh = new THREE.Mesh(fallbackGeo, fallbackMat);
+                    fallbackMesh.rotation.x = Math.PI / 3;
+                    snailGroup.add(fallbackMesh);
+                }
+            );
+        }
+
+        function spawnBabies() {
+            const positions = [
+                { x: 18, z: -18 },
+                { x: -18, z: -18 },
+                { x: 18, z: 18 }
+            ];
+
+            positions.forEach(pos => {
+                const babyGroup = new THREE.Group();
+                babyGroup.position.set(pos.x, 0, pos.z);
+                scene.add(babyGroup);
+
+                // Indicator ring
+                const ringGeo = new THREE.RingGeometry(0.5, 0.7, 16);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = 0.05;
+                babyGroup.add(ring);
+
+                // Import Baby 3D Model
+                gltfLoader.load(
+                    ASSET_URLS.babyModel,
+                    (gltf) => {
+                        const model = gltf.scene;
+                        model.scale.set(0.4, 0.4, 0.4);
+                        babyGroup.add(model);
+                    },
+                    undefined,
+                    () => {
+                        const fallback = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.4, 8, 8),
+                            new THREE.MeshStandardMaterial({ color: 0xffff00 })
+                        );
+                        fallback.position.y = 0.4;
+                        babyGroup.add(fallback);
+                    }
+                );
+
+                babies.push({ mesh: babyGroup, ring: ring, rescued: false });
+            });
+        }
+
+        function spawnGuards() {
+            const guardPositions = [
+                { x: 0, z: -10 },
+                { x: 10, z: 0 }
+            ];
+
+            guardPositions.forEach(pos => {
+                const guardGroup = new THREE.Group();
+                guardGroup.position.set(pos.x, 0, pos.z);
+                scene.add(guardGroup);
+
+                gltfLoader.load(
+                    ASSET_URLS.guardModel,
+                    (gltf) => {
+                        const model = gltf.scene;
+                        model.scale.set(0.7, 0.7, 0.7);
+                        guardGroup.add(model);
+                    },
+                    undefined,
+                    () => {
+                        const fallback = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
+                            new THREE.MeshStandardMaterial({ color: 0xff3300 })
+                        );
+                        fallback.position.y = 0.75;
+                        guardGroup.add(fallback);
+                    }
+                );
+
+                guards.push({
+                    mesh: guardGroup,
+                    dir: 1,
+                    axis: pos.x === 0 ? 'z' : 'x',
+                    min: pos.x === 0 ? -14 : 2,
+                    max: pos.x === 0 ? -6 : 14
+                });
+            });
+        }
+
+        function checkWallCollision(newPos) {
+            const playerBox = new THREE.Box3();
+            playerBox.min.set(newPos.x - 0.4, 0, newPos.z - 0.4);
+            playerBox.max.set(newPos.x + 0.4, 1.5, newPos.z + 0.4);
+
+            for (let wallBox of walls) {
+                if (playerBox.intersectsBox(wallBox)) return true;
+            }
+            return false;
         }
 
         function animate() {
+            if (isGameOver) return;
             requestAnimationFrame(animate);
-            if (gameOver) return;
 
-            const delta = Math.min(clock.getDelta(), 0.1);
+            if (keys['a'] || keys['arrowleft']) snailGroup.rotation.y += ROT_SPEED;
+            if (keys['d'] || keys['arrowright']) snailGroup.rotation.y -= ROT_SPEED;
 
-            if (freezeTimer > 0) {
-                freezeTimer -= delta;
-                document.getElementById('player-status').innerText = "FROZEN (" + Math.ceil(freezeTimer) + "s)";
-                document.getElementById('player-status').style.color = "#ffcc00";
-            } else {
-                let statusElement = document.getElementById('player-status');
-                if (isBoostActive) {
-                    statusElement.innerText = "BOOST SHIELD!";
-                    statusElement.style.color = "#ffaa00";
-                } else if (isShieldActive) {
-                    statusElement.innerText = "SHIELD ACTIVE";
-                    statusElement.style.color = "#00ffff";
+            let moveDistance = 0;
+            if (keys['w'] || keys['arrowup']) moveDistance = SPEED;
+            if (keys['s'] || keys['arrowdown']) moveDistance = -SPEED / 2;
+
+            if (moveDistance !== 0) {
+                const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
+                const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
+
+                if (!checkWallCollision({ x: nextX, z: snailGroup.position.z })) snailGroup.position.x = nextX;
+                if (!checkWallCollision({ x: snailGroup.position.x, z: nextZ })) snailGroup.position.z = nextZ;
+            }
+
+            // World-Space Follow Camera
+            const cameraDistance = 5.0;
+            const cameraHeight = 3.5;
+
+            const camX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * cameraDistance;
+            const camZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * cameraDistance;
+
+            camera.position.set(camX, snailGroup.position.y + cameraHeight, camZ);
+            camera.lookAt(snailGroup.position.x, snailGroup.position.y + 1.0, snailGroup.position.z);
+
+            // Babies check
+            babies.forEach(baby => {
+                if (!baby.rescued) {
+                    baby.mesh.rotation.y += 0.02;
+                    baby.ring.scale.setScalar(1 + Math.sin(Date.now() * 0.005) * 0.1);
+
+                    if (snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
+                        baby.rescued = true;
+                        scene.remove(baby.mesh);
+                        rescuedCount++;
+                        document.getElementById('rescued-count').innerText = `${rescuedCount} / ${TOTAL_BABIES}`;
+
+                        if (rescuedCount === TOTAL_BABIES) triggerEndGame(true);
+                    }
+                }
+            });
+
+            // Guards check
+            guards.forEach(guard => {
+                if (guard.axis === 'z') {
+                    guard.mesh.position.z += 0.04 * guard.dir;
+                    if (guard.mesh.position.z > guard.max || guard.mesh.position.z < guard.min) guard.dir *= -1;
                 } else {
-                    statusElement.innerText = "Active";
-                    statusElement.style.color = "#00ffcc";
+                    guard.mesh.position.x += 0.04 * guard.dir;
+                    if (guard.mesh.position.x > guard.max || guard.mesh.position.x < guard.min) guard.dir *= -1;
                 }
 
-                let currentSpeed = isBoostActive ? 16.0 : 7.5;
-
-                if (moveX !== 0) snailGroup.rotation.y -= moveX * 2.5 * delta;
-                let nextX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * moveZ * currentSpeed * delta;
-                let nextZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * moveZ * currentSpeed * delta;
-
-                if (canEntityMoveTo(nextX, snailGroup.position.z, 0.65)) snailGroup.position.x = nextX;
-                if (canEntityMoveTo(snailGroup.position.x, nextZ, 0.65)) snailGroup.position.z = nextZ;
-            }
-
-            reflectiveShield.rotation.y += (isBoostActive ? 4.8 : 1.2) * delta;
-
-            let nextBellX = bellGroup.position.x + bellVelocity.x;
-            let nextBellZ = bellGroup.position.z + bellVelocity.z;
-
-            if (!canEntityMoveTo(nextBellX, bellGroup.position.z, 0.9)) {
-                bellVelocity.x *= -1;
-            } else {
-                bellGroup.position.x = nextBellX;
-            }
-
-            if (!canEntityMoveTo(bellGroup.position.x, nextBellZ, 0.9)) {
-                bellVelocity.z *= -1;
-            } else {
-                bellGroup.position.z = nextBellZ;
-            }
-            bellGroup.rotation.y += 1.8 * delta;
-
-            if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
-                freezeTimer = 5.0; 
-            }
-
-            enemies.forEach(en => {
-                let distToSnail = en.mesh.position.distanceTo(snailGroup.position);
-                let canSeePlayer = distToSnail < 18 && hasLineOfSight(en.mesh.position, snailGroup.position);
-
-                let targetPos = canSeePlayer ? snailGroup.position : en.route[en.targetIndex];
-                let dir = new THREE.Vector3().subVectors(targetPos, en.mesh.position);
-                dir.y = 0;
-                let distToTarget = dir.length();
-
-                if (!canSeePlayer && distToTarget < 0.4) {
-                    en.targetIndex = (en.targetIndex + 1) % en.route.length;
-                } else if (distToTarget > 0.1) {
-                    dir.normalize();
-
-                    let stepX = en.mesh.position.x + dir.x * en.speed * delta;
-                    let stepZ = en.mesh.position.z + dir.z * en.speed * delta;
-
-                    let moved = false;
-
-                    if (canEntityMoveTo(stepX, stepZ, 0.6)) {
-                        en.mesh.position.x = stepX;
-                        en.mesh.position.z = stepZ;
-                        moved = true;
-                    } else if (canEntityMoveTo(stepX, en.mesh.position.z, 0.6)) {
-                        en.mesh.position.x = stepX; 
-                        moved = true;
-                    } else if (canEntityMoveTo(en.mesh.position.x, stepZ, 0.6)) {
-                        en.mesh.position.z = stepZ; 
-                        moved = true;
-                    }
-
-                    if (moved) {
-                        en.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    } else if (!canSeePlayer) {
-                        en.targetIndex = (en.targetIndex + 1) % en.route.length;
-                    }
-                }
-
-                if (canSeePlayer) {
-                    en.shootCooldown--;
-                    if (en.shootCooldown <= 0) {
-                        en.shootCooldown = 75;
-                        
-                        const shootDir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
-                        const bullet = new THREE.Mesh(bulletGeo, bulletMat);
-                        
-                        bullet.position.copy(en.mesh.position).addScaledVector(shootDir, 1.2);
-                        bullet.position.y = 1.0;
-                        
-                        scene.add(bullet);
-                        bullets.push({ mesh: bullet, dir: shootDir, speed: 12.0, bounces: 0 });
-                    }
+                if (snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
+                    triggerEndGame(false);
                 }
             });
-
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, b.speed * delta);
-
-                let bulletBox = new THREE.Box3().setFromObject(b.mesh);
-                let bulletRemoved = false;
-
-                for (let wallBox of wallBoundingBoxes) {
-                    if (bulletBox.intersectsBox(wallBox)) {
-                        b.dir.negate();
-                        b.bounces = (b.bounces || 0) + 1;
-
-                        if (b.bounces >= 2) {
-                            scene.remove(b.mesh);
-                            bullets.splice(i, 1);
-                            bulletRemoved = true;
-                        }
-                        break;
-                    }
-                }
-
-                if (bulletRemoved) continue;
-
-                let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
-
-                if (isShieldActive && distToPlayer < 2.0) {
-                    b.dir.negate();
-                    b.speed *= 1.2;
-                    b.mesh.material.color.setHex(0x00ffff);
-                } 
-                else if (!isShieldActive && distToPlayer < 1.2) {
-                    health = Math.max(0, health - 15);
-                    tookDamage = true;
-                    updateHealthBar();
-                    
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                    if (health <= 0) endGame("GAME OVER - SHOT DOWN");
-                    continue;
-                }
-
-                if (Math.abs(b.mesh.position.x) > 35 || Math.abs(b.mesh.position.z) > 35) {
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                }
-            }
-
-            rooms.forEach(room => {
-                if (!isShieldActive && !room.rescued && room.babyMesh && snailGroup.position.distanceTo(room.mesh.position) < 3.0) {
-                    room.rescued = true;
-                    room.mesh.visible = false;
-                    carriedBabies.push(room.babyMesh);
-                }
-            });
-
-            for (let i = 0; i < carriedBabies.length; i++) {
-                let baby = carriedBabies[i];
-                let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.5 + (i * 1.0)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
-                baby.position.lerp(targetPos, 0.1);
-                baby.position.y = 0.3;
-            }
-
-            if (carriedBabies.length > 0 && snailGroup.position.distanceTo(homeBaseGroup.position) < 3.5) {
-                score += carriedBabies.length;
-                document.getElementById('score').innerText = score;
-                
-                carriedBabies.forEach(baby => scene.remove(baby));
-                carriedBabies = [];
-
-                if (score >= 2) {
-                    endGame("LEVEL 2 VICTORY!");
-                }
-            }
-
-            camera.lookAt(
-                snailGroup.position.x + Math.sin(snailGroup.rotation.y) * 4,
-                snailGroup.position.y + 1.2,
-                snailGroup.position.z + Math.cos(snailGroup.rotation.y) * 4
-            );
 
             renderer.render(scene, camera);
         }
-        animate();
 
-        window.addEventListener('resize', () => {
+        function triggerEndGame(isWin) {
+            isGameOver = true;
+            const modal = document.getElementById('game-over-modal');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-msg');
+
+            if (isWin) {
+                title.innerText = "MISSION COMPLETE!";
+                title.style.color = "#00ffcc";
+                msg.innerText = "You rescued all the baby snails safely!";
+            } else {
+                title.innerText = "CAUGHT BY GUARD!";
+                title.style.color = "#ff007f";
+                msg.innerText = "A guard spotted you!";
+            }
+            modal.style.display = 'flex';
+        }
+
+        function resetGame() {
+            location.reload();
+        }
+
+        function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
