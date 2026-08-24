@@ -96,8 +96,8 @@
         scene.background = new THREE.Color(0x050508);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.2, 0);
-        camera.lookAt(0, 1.2, -5);
+        camera.position.set(0, 2.2, -2.8);
+        camera.lookAt(0, 1.2, 4.0);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -313,7 +313,7 @@
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
         snailGroup.add(camera);
-        snailGroup.position.set(-18, 0, 18);
+        snailGroup.position.set(-18, 0, 12);
 
         const shieldGeo = new THREE.SphereGeometry(1.6, 32, 32);
         const shieldMat = new THREE.MeshPhysicalMaterial({ 
@@ -479,7 +479,8 @@
             }
             return true;
         }
-function hasLineOfSight(guardPos, playerPos) {
+
+        function hasLineOfSight(guardPos, playerPos) {
             const dir = new THREE.Vector3().subVectors(playerPos, guardPos).normalize();
             const dist = guardPos.distanceTo(playerPos);
             
@@ -517,15 +518,12 @@ function hasLineOfSight(guardPos, playerPos) {
 
                 let currentSpeed = isBoostActive ? 16.0 : 7.5;
 
-                let nextX = snailGroup.position.x + (moveX * currentSpeed * delta);
-                let nextZ = snailGroup.position.z + (moveZ * currentSpeed * delta);
+                if (moveX !== 0) snailGroup.rotation.y -= moveX * 2.5 * delta;
+                let nextX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * moveZ * currentSpeed * delta;
+                let nextZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * moveZ * currentSpeed * delta;
 
                 if (canEntityMoveTo(nextX, snailGroup.position.z, 0.65)) snailGroup.position.x = nextX;
                 if (canEntityMoveTo(snailGroup.position.x, nextZ, 0.65)) snailGroup.position.z = nextZ;
-
-                if (moveX !== 0 || moveZ !== 0) {
-                    snailGroup.rotation.y = Math.atan2(moveX, moveZ);
-                }
             }
 
             reflectiveShield.rotation.y += (isBoostActive ? 4.8 : 1.2) * delta;
@@ -679,9 +677,11 @@ function hasLineOfSight(guardPos, playerPos) {
                 }
             }
 
-            camera.position.x = snailGroup.position.x;
-            camera.position.z = snailGroup.position.z + 14;
-            camera.lookAt(snailGroup.position.x, snailGroup.position.y, snailGroup.position.z);
+            camera.lookAt(
+                snailGroup.position.x + Math.sin(snailGroup.rotation.y) * 4,
+                snailGroup.position.y + 1.2,
+                snailGroup.position.z + Math.cos(snailGroup.rotation.y) * 4
+            );
 
             renderer.render(scene, camera);
         }
