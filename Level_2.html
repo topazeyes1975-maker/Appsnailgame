@@ -15,8 +15,12 @@
         }
 
         #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
+            z-index: 1;
         }
 
         #ui-layer {
@@ -25,6 +29,7 @@
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 10;
             pointer-events: none;
             display: flex;
             flex-direction: column;
@@ -68,8 +73,8 @@
         /* GPS Radar HUD Overlay */
         #gps-container {
             position: relative;
-            width: 110px;
-            height: 110px;
+            width: 100px;
+            height: 100px;
             background: rgba(5, 15, 25, 0.9);
             border: 2px solid #00ffcc;
             border-radius: 50%;
@@ -88,7 +93,7 @@
             bottom: 4px;
             width: 100%;
             text-align: center;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: bold;
             color: #00ffcc;
             letter-spacing: 1px;
@@ -100,33 +105,29 @@
             color: #ff007f;
         }
 
-        /* Mobile Touch Joysticks / D-Pad */
+        /* Mobile Touch Controls */
         #touch-controls {
             position: absolute;
             bottom: 20px;
-            left: 0;
-            width: 100%;
+            left: 15px;
+            width: 150px;
             height: 150px;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-sizing: border-box;
             pointer-events: auto;
         }
 
         .dpad-container {
             display: grid;
-            grid-template-columns: repeat(3, 48px);
-            grid-template-rows: repeat(3, 48px);
+            grid-template-columns: repeat(3, 45px);
+            grid-template-rows: repeat(3, 45px);
             gap: 5px;
         }
 
         .btn-touch {
-            background: rgba(0, 255, 204, 0.2);
+            background: rgba(0, 255, 204, 0.25);
             border: 2px solid #00ffcc;
             border-radius: 10px;
             color: #00ffcc;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             display: flex;
             align-items: center;
@@ -135,8 +136,8 @@
         }
 
         .btn-touch:active {
-            background: rgba(0, 255, 204, 0.6);
-            transform: scale(0.95);
+            background: rgba(0, 255, 204, 0.7);
+            transform: scale(0.92);
         }
 
         #btn-up { grid-column: 2; grid-row: 1; }
@@ -158,6 +159,7 @@
             display: none;
             flex-direction: column;
             gap: 15px;
+            z-index: 100;
             pointer-events: auto;
             box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
             min-width: 260px;
@@ -174,7 +176,7 @@
             cursor: pointer;
         }
     </style>
-    <!-- Three.js & Loaders -->
+    <!-- Three.js Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
@@ -189,14 +191,12 @@
                 <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
             </div>
 
-            <!-- GPS Radar HUD Overlay -->
             <div id="gps-container">
-                <canvas id="gps-canvas" width="110" height="110"></canvas>
+                <canvas id="gps-canvas" width="100" height="100"></canvas>
                 <div id="gps-label">GPS RADAR</div>
             </div>
         </div>
 
-        <!-- Touch Joysticks / D-Pad -->
         <div id="touch-controls">
             <div class="dpad-container">
                 <div class="btn-touch" id="btn-up">▲</div>
@@ -214,14 +214,13 @@
     </div>
 
     <script>
-        // Set paths to your GLB 3D models and image textures here:
         const ASSETS = {
-            wallTex: '',
-            floorTex: '',
-            playerModel: '',
-            babyModel: '',
-            guardModel: '',
-            bellModel: ''
+            wallTex: 'path/to/wall_texture.jpg',
+            floorTex: 'path/to/floor_texture.jpg',
+            playerModel: 'path/to/player_snail.glb',
+            babyModel: 'path/to/baby_snail.glb',
+            guardModel: 'path/to/guard_enemy.glb',
+            bellModel: 'path/to/liberty_bell.glb'
         };
 
         const MAZE_SIZE = 11;
@@ -262,20 +261,19 @@
 
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a1a);
-            scene.fog = new THREE.FogExp2(0x0a0a1a, 0.03);
+            scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            scene.add(camera);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0x00ffff, 0.8);
+            const dirLight = new THREE.DirectionalLight(0x00ffff, 1.0);
             dirLight.position.set(20, 40, 20);
             scene.add(dirLight);
 
@@ -313,12 +311,7 @@
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            const wallTex = textureLoader.load(ASSETS.wallTex, undefined, undefined, () => null);
-            const wallMat = new THREE.MeshStandardMaterial({ 
-                map: wallTex || null, 
-                color: wallTex ? 0xffffff : 0x223355, 
-                roughness: 0.3 
-            });
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x223355, roughness: 0.3 });
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
 
@@ -336,7 +329,7 @@
 
         function createPlayer() {
             snailGroup = new THREE.Group();
-            snailGroup.position.set(-18, 0, 12);
+            snailGroup.position.set(-16, 0, 12);
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -375,7 +368,7 @@
         }
 
         function spawnBabies() {
-            const positions = [{ x: 18, z: -18 }, { x: -18, z: -18 }, { x: 18, z: 18 }];
+            const positions = [{ x: 16, z: -16 }, { x: -16, z: -16 }, { x: 16, z: 16 }];
             positions.forEach(pos => {
                 const babyGroup = new THREE.Group();
                 babyGroup.position.set(pos.x, 0, pos.z);
@@ -399,7 +392,7 @@
         }
 
         function spawnGuards() {
-            const positions = [{ x: 0, z: -10 }, { x: 10, z: 0 }];
+            const positions = [{ x: 0, z: -8 }, { x: 8, z: 0 }];
             positions.forEach(pos => {
                 const guardGroup = new THREE.Group();
                 guardGroup.position.set(pos.x, 0, pos.z);
@@ -422,8 +415,8 @@
                     mesh: guardGroup,
                     dir: 1,
                     axis: pos.x === 0 ? 'z' : 'x',
-                    min: pos.x === 0 ? -14 : 2,
-                    max: pos.x === 0 ? -6 : 14
+                    min: pos.x === 0 ? -12 : 2,
+                    max: pos.x === 0 ? -4 : 12
                 });
             });
         }
@@ -457,17 +450,15 @@
             return false;
         }
 
-        // Render GPS Minimap Radar
         function updateGPS() {
             const gpsCanvas = document.getElementById('gps-canvas');
             const ctx = gpsCanvas.getContext('2d');
-            ctx.clearRect(0, 0, 110, 110);
+            ctx.clearRect(0, 0, 100, 100);
 
-            const mapScale = 2.2; 
-            const centerX = 55;
-            const centerY = 55;
+            const mapScale = 2.0; 
+            const centerX = 50;
+            const centerY = 50;
 
-            // Draw Maze Wall Outlines on GPS
             ctx.fillStyle = '#112233';
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
             for (let r = 0; r < MAZE_SIZE; r++) {
@@ -475,12 +466,11 @@
                     if (mazeGrid[r][c] === 1) {
                         const wx = (c * CELL_SIZE - offset) * mapScale + centerX;
                         const wz = (r * CELL_SIZE - offset) * mapScale + centerY;
-                        ctx.fillRect(wx - 4, wz - 4, 8, 8);
+                        ctx.fillRect(wx - 3, wz - 3, 6, 6);
                     }
                 }
             }
 
-            // Draw Baby Snails (Yellow Dots)
             ctx.fillStyle = '#ffff00';
             babies.forEach(b => {
                 if (!b.rescued) {
@@ -492,27 +482,24 @@
                 }
             });
 
-            // Draw Guards (Red Dots)
             ctx.fillStyle = '#ff0055';
             guards.forEach(g => {
                 const gx = g.mesh.position.x * mapScale + centerX;
                 const gz = g.mesh.position.z * mapScale + centerY;
                 ctx.beginPath();
-                ctx.arc(gx, gz, 4, 0, Math.PI * 2);
+                ctx.arc(gx, gz, 3.5, 0, Math.PI * 2);
                 ctx.fill();
             });
 
-            // Draw Liberty Bell (Cyan Blinking Dot)
             if (bellGroup) {
                 ctx.fillStyle = '#00ffff';
                 const lx = bellGroup.position.x * mapScale + centerX;
                 const lz = bellGroup.position.z * mapScale + centerY;
                 ctx.beginPath();
-                ctx.arc(lx, lz, 4, 0, Math.PI * 2);
+                ctx.arc(lx, lz, 3.5, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Draw Player (Pink Arrow / Triangle)
             if (snailGroup) {
                 const px = snailGroup.position.x * mapScale + centerX;
                 const pz = snailGroup.position.z * mapScale + centerY;
@@ -522,16 +509,16 @@
                 ctx.rotate(-snailGroup.rotation.y);
                 ctx.fillStyle = '#ff007f';
                 ctx.beginPath();
-                ctx.moveTo(0, -6);
-                ctx.lineTo(-4, 5);
-                ctx.lineTo(4, 5);
+                ctx.moveTo(0, -5);
+                ctx.lineTo(-3, 4);
+                ctx.lineTo(3, 4);
                 ctx.closePath();
                 ctx.fill();
                 ctx.restore();
             }
         }
 
-        function animate() {
+                function animate() {
             if (isGameOver) return;
             requestAnimationFrame(animate);
 
@@ -543,7 +530,7 @@
                 }
             }
 
-            if (!isFrozen) {
+            if (!isFrozen && snailGroup) {
                 if (keys['a']) snailGroup.rotation.y += ROT_SPEED;
                 if (keys['d']) snailGroup.rotation.y -= ROT_SPEED;
 
@@ -571,24 +558,27 @@
                 if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
                 else bellGroup.position.z = nextBellZ;
 
-                if (!isFrozen && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
+                if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                     isFrozen = true;
                     freezeTimer = 2500;
                     document.getElementById('status-msg').style.display = 'block';
                 }
             }
 
-            // Follow Camera
-            const camDistance = 5.0;
-            const camHeight = 3.5;
-            camera.position.x = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * camDistance;
-            camera.position.z = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * camDistance;
-            camera.position.y = snailGroup.position.y + camHeight;
-            camera.lookAt(snailGroup.position.x, snailGroup.position.y + 1.0, snailGroup.position.z);
+            // Fixed Third-Person Camera Offset
+            if (snailGroup) {
+                const camDistance = 8.0;
+                const camHeight = 5.0;
 
-            // Baby collection
+                const camX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * camDistance;
+                const camZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * camDistance;
+
+                camera.position.set(camX, snailGroup.position.y + camHeight, camZ);
+                camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.8, snailGroup.position.z);
+            }
+
             babies.forEach(baby => {
-                if (!baby.rescued) {
+                if (!baby.rescued && snailGroup) {
                     baby.mesh.rotation.y += 0.02;
                     if (snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
                         baby.rescued = true;
@@ -600,7 +590,6 @@
                 }
             });
 
-            // Guards
             guards.forEach(guard => {
                 if (guard.axis === 'z') {
                     guard.mesh.position.z += 0.04 * guard.dir;
@@ -610,7 +599,7 @@
                     if (guard.mesh.position.x > guard.max || guard.mesh.position.x < guard.min) guard.dir *= -1;
                 }
 
-                if (snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
+                if (snailGroup && snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
                     endGame(false);
                 }
             });
