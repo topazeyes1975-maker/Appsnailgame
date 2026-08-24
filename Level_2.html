@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snail Rescue: 3D Liberty Bell Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Snail Rescue: GPS & 3D Liberty Bell Edition</title>
     <style>
         body {
             margin: 0;
@@ -11,6 +11,7 @@
             background-color: #050510;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
+            touch-action: none;
         }
 
         #canvas-container {
@@ -28,39 +29,70 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 20px;
+            padding: 15px;
             box-sizing: border-box;
-        }
-
-        .hud-panel {
-            background: rgba(15, 15, 30, 0.75);
-            border: 1px solid rgba(0, 255, 200, 0.3);
-            border-radius: 8px;
-            padding: 12px 20px;
-            color: #e0f7fc;
-            font-size: 16px;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            pointer-events: auto;
         }
 
         #top-hud {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .hud-panel {
+            background: rgba(15, 15, 30, 0.85);
+            border: 1px solid rgba(0, 255, 200, 0.4);
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #e0f7fc;
+            font-size: 14px;
+            backdrop-filter: blur(4px);
+            pointer-events: auto;
         }
 
         #title {
             font-weight: bold;
-            font-size: 20px;
-            letter-spacing: 1px;
+            font-size: 16px;
             color: #00ffcc;
             text-shadow: 0 0 8px rgba(0,255,204,0.6);
         }
 
-        #stats {
-            display: flex;
-            gap: 20px;
+        #status-msg {
+            color: #ffea00;
+            font-weight: bold;
+            display: none;
+            margin-top: 5px;
+        }
+
+        /* GPS Radar HUD Overlay */
+        #gps-container {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            background: rgba(5, 15, 25, 0.9);
+            border: 2px solid #00ffcc;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
+            pointer-events: auto;
+        }
+
+        #gps-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #gps-label {
+            position: absolute;
+            bottom: 4px;
+            width: 100%;
+            text-align: center;
+            font-size: 9px;
+            font-weight: bold;
+            color: #00ffcc;
+            letter-spacing: 1px;
+            text-shadow: 0 0 2px #000;
         }
 
         .stat-value {
@@ -68,21 +100,49 @@
             color: #ff007f;
         }
 
-        #status-msg {
-            color: #ffea00;
-            font-weight: bold;
-            display: none;
+        /* Mobile Touch Joysticks / D-Pad */
+        #touch-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            pointer-events: auto;
         }
 
-        #controls-hint {
-            align-self: center;
-            margin-bottom: 10px;
-            font-size: 14px;
-            opacity: 0.8;
-            background: rgba(0,0,0,0.6);
-            padding: 6px 14px;
-            border-radius: 20px;
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 48px);
+            grid-template-rows: repeat(3, 48px);
+            gap: 5px;
         }
+
+        .btn-touch {
+            background: rgba(0, 255, 204, 0.2);
+            border: 2px solid #00ffcc;
+            border-radius: 10px;
+            color: #00ffcc;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        .btn-touch:active {
+            background: rgba(0, 255, 204, 0.6);
+            transform: scale(0.95);
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
 
         #game-over-modal {
             position: absolute;
@@ -92,22 +152,15 @@
             background: rgba(10, 10, 25, 0.95);
             border: 2px solid #00ffcc;
             border-radius: 12px;
-            padding: 30px;
+            padding: 25px;
             text-align: center;
             color: white;
             display: none;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             pointer-events: auto;
             box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
-            min-width: 280px;
-        }
-
-        #game-over-modal h1 {
-            margin: 0;
-            color: #00ffcc;
-            font-size: 28px;
-            text-shadow: 0 0 10px rgba(0,255,204,0.5);
+            min-width: 260px;
         }
 
         #btn-restart {
@@ -119,88 +172,56 @@
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        #btn-restart:hover {
-            background: #ff3399;
-            box-shadow: 0 0 12px rgba(255,0,127,0.8);
-            transform: scale(1.05);
-        }
-
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #050510;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #00ffcc;
-            font-size: 24px;
-            z-index: 100;
-            transition: opacity 0.5s ease;
-        }
-
-        .spinner {
-            border: 4px solid rgba(0,255,204,0.1);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border-left-color: #00ffcc;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
     </style>
-    <!-- Three.js & GLTF Loader Libraries -->
+    <!-- Three.js & Loaders -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
-    <div id="loading-screen">
-        <div class="spinner"></div>
-        <div>Loading 3D Models & Textures...</div>
-    </div>
-
     <div id="canvas-container"></div>
 
     <div id="ui-layer">
-        <div id="top-hud" class="hud-panel">
-            <div id="title">SNAIL RESCUE</div>
-            <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
-            <div id="stats">
-                <div class="stat-item">Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
+        <div id="top-hud">
+            <div class="hud-panel">
+                <div id="title">SNAIL RESCUE</div>
+                <div>Babies: <span id="rescued-count" class="stat-value">0 / 3</span></div>
+                <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
+            </div>
+
+            <!-- GPS Radar HUD Overlay -->
+            <div id="gps-container">
+                <canvas id="gps-canvas" width="110" height="110"></canvas>
+                <div id="gps-label">GPS RADAR</div>
             </div>
         </div>
-        <div id="controls-hint">Use <b>W A S D</b> or <b>Arrow Keys</b> to Move & Rotate</div>
+
+        <!-- Touch Joysticks / D-Pad -->
+        <div id="touch-controls">
+            <div class="dpad-container">
+                <div class="btn-touch" id="btn-up">▲</div>
+                <div class="btn-touch" id="btn-left">◀</div>
+                <div class="btn-touch" id="btn-right">▶</div>
+                <div class="btn-touch" id="btn-down">▼</div>
+            </div>
+        </div>
     </div>
 
     <div id="game-over-modal">
-        <h1 id="modal-title">MISSION COMPLETE!</h1>
-        <p id="modal-msg">You rescued all the baby snails safely!</p>
-        <button id="btn-restart" onclick="resetGame()">PLAY AGAIN</button>
+        <h2 id="modal-title" style="margin:0; color:#00ffcc;">MISSION COMPLETE!</h2>
+        <p id="modal-msg">You rescued all baby snails!</p>
+        <button id="btn-restart" onclick="location.reload()">PLAY AGAIN</button>
     </div>
 
     <script>
-        // =========================================================
-        // ASSET URL CONFIGURATION
-        // Insert your model and texture links here:
-        // =========================================================
-        const ASSET_URLS = {
-            wallTexture: '1785672040480.png',
-            floorTexture: '1785671824766.png',
-            playerModel: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb',
-            babyModel: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb',
-            guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb',
-            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb' // <-- Liberty Bell Model URL
+        // Set paths to your GLB 3D models and image textures here:
+        const ASSETS = {
+            wallTex: 'path/to/wall_texture.jpg',
+            floorTex: 'path/to/floor_texture.jpg',
+            playerModel: 'path/to/player_snail.glb',
+            babyModel: 'path/to/baby_snail.glb',
+            guardModel: 'path/to/guard_enemy.glb',
+            bellModel: 'path/to/liberty_bell.glb'
         };
 
         const MAZE_SIZE = 11;
@@ -209,18 +230,15 @@
         const ROT_SPEED = 0.04;
 
         let scene, camera, renderer;
-        let snailGroup;
-        let bellGroup, bellVelocity = { x: 0.03, z: 0.03 };
-        let isFrozen = false;
-        let freezeTimer = 0;
-
-        let keys = {};
-        let babies = [];
-        let guards = [];
-        let walls = [];
+        let snailGroup, bellGroup;
+        let bellVelocity = { x: 0.03, z: 0.03 };
+        let isFrozen = false, freezeTimer = 0;
         let rescuedCount = 0;
         const TOTAL_BABIES = 3;
         let isGameOver = false;
+
+        let keys = { w: false, a: false, s: false, d: false };
+        let babies = [], guards = [], walls = [];
 
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
@@ -251,63 +269,56 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
             scene.add(ambientLight);
 
             const dirLight = new THREE.DirectionalLight(0x00ffff, 0.8);
             dirLight.position.set(20, 40, 20);
-            dirLight.castShadow = true;
             scene.add(dirLight);
 
             buildMaze();
             createPlayer();
+            spawnLibertyBell();
             spawnBabies();
             spawnGuards();
-            spawnLibertyBell(); // <-- Restored Liberty Bell Setup
+
+            bindTouchControls();
 
             window.addEventListener('resize', onWindowResize);
-            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-            document.getElementById('loading-screen').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loading-screen').style.display = 'none';
-            }, 500);
-
             animate();
         }
 
-        function loadTextureSafely(url, isFloor = false) {
-            return textureLoader.load(
-                url,
-                (tex) => {
-                    tex.wrapS = THREE.RepeatWrapping;
-                    tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(isFloor ? 10 : 1, isFloor ? 10 : 1);
-                },
-                undefined,
-                () => console.warn(`Texture fallback used for ${url}`)
-            );
+        function createFallbackTexture(c1, c2) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = c1; ctx.fillRect(0,0,128,128);
+            ctx.fillStyle = c2; ctx.fillRect(0,0,64,64); ctx.fillRect(64,64,64,64);
+            return new THREE.CanvasTexture(canvas);
         }
 
         function buildMaze() {
-            const wallTex = loadTextureSafely(ASSET_URLS.wallTexture, false);
-            const floorTex = loadTextureSafely(ASSET_URLS.floorTexture, true);
+            const floorTex = textureLoader.load(ASSETS.floorTex, 
+                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10,10); },
+                undefined,
+                () => createFallbackTexture('#0f0f2d', '#1a1a40')
+            );
 
-            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4 });
-            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
-
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex });
             const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
             scene.add(floor);
 
+            const wallTex = textureLoader.load(ASSETS.wallTex, undefined, undefined, () => null);
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                map: wallTex || null, 
+                color: wallTex ? 0xffffff : 0x223355, 
+                roughness: 0.3 
+            });
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
 
@@ -316,8 +327,6 @@
                     if (mazeGrid[r][c] === 1) {
                         const wall = new THREE.Mesh(wallGeo, wallMat);
                         wall.position.set(c * CELL_SIZE - offset, 1.5, r * CELL_SIZE - offset);
-                        wall.castShadow = true;
-                        wall.receiveShadow = true;
                         scene.add(wall);
                         walls.push(new THREE.Box3().setFromObject(wall));
                     }
@@ -327,126 +336,87 @@
 
         function createPlayer() {
             snailGroup = new THREE.Group();
-            scene.add(snailGroup);
             snailGroup.position.set(-18, 0, 12);
+            scene.add(snailGroup);
 
-            gltfLoader.load(
-                ASSET_URLS.playerModel,
-                (gltf) => {
-                    const model = gltf.scene;
-                    model.scale.set(0.8, 0.8, 0.8);
-                    snailGroup.add(model);
-                },
-                undefined,
-                () => {
-                    const fallbackMesh = new THREE.Mesh(
-                        new THREE.ConeGeometry(0.8, 1.4, 8),
-                        new THREE.MeshStandardMaterial({ color: 0xff007f })
-                    );
-                    fallbackMesh.rotation.x = Math.PI / 3;
-                    snailGroup.add(fallbackMesh);
-                }
-            );
+            gltfLoader.load(ASSETS.playerModel, (gltf) => {
+                const model = gltf.scene;
+                model.scale.set(0.8, 0.8, 0.8);
+                snailGroup.add(model);
+            }, undefined, () => {
+                const body = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.7, 1.4, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xff007f })
+                );
+                body.rotation.x = Math.PI / 3;
+                body.position.y = 0.4;
+                snailGroup.add(body);
+            });
         }
 
-        // --- Restored Liberty Bell Mesh & Light Setup ---
         function spawnLibertyBell() {
             bellGroup = new THREE.Group();
             bellGroup.position.set(0, 1.2, 0);
             scene.add(bellGroup);
 
-            // Neon Point Light attached to Bell
             const bellLight = new THREE.PointLight(0x00ffff, 2, 8);
-            bellLight.position.set(0, 0.5, 0);
             bellGroup.add(bellLight);
 
-            gltfLoader.load(
-                ASSET_URLS.bellModel,
-                (gltf) => {
-                    const model = gltf.scene;
-                    model.scale.set(0.6, 0.6, 0.6);
-                    bellGroup.add(model);
-                },
-                undefined,
-                () => {
-                    // Fallback Bell geometry if GLTF is missing
-                    const bellMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x004455, roughness: 0.2 });
-                    const fallbackBell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.7, 1.2, 12), bellMat);
-                    bellGroup.add(fallbackBell);
-                }
-            );
+            gltfLoader.load(ASSETS.bellModel, (gltf) => {
+                const model = gltf.scene;
+                model.scale.set(0.6, 0.6, 0.6);
+                bellGroup.add(model);
+            }, undefined, () => {
+                const bellMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x004455, roughness: 0.2 });
+                const bellMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.7, 1.2, 12), bellMat);
+                bellMesh.position.y = 0.6;
+                bellGroup.add(bellMesh);
+            });
         }
 
         function spawnBabies() {
-            const positions = [
-                { x: 18, z: -18 },
-                { x: -18, z: -18 },
-                { x: 18, z: 18 }
-            ];
-
+            const positions = [{ x: 18, z: -18 }, { x: -18, z: -18 }, { x: 18, z: 18 }];
             positions.forEach(pos => {
                 const babyGroup = new THREE.Group();
                 babyGroup.position.set(pos.x, 0, pos.z);
                 scene.add(babyGroup);
 
-                const ring = new THREE.Mesh(
-                    new THREE.RingGeometry(0.5, 0.7, 16),
-                    new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
-                );
-                ring.rotation.x = Math.PI / 2;
-                ring.position.y = 0.05;
-                babyGroup.add(ring);
+                gltfLoader.load(ASSETS.babyModel, (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(0.4, 0.4, 0.4);
+                    babyGroup.add(model);
+                }, undefined, () => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.4, 8, 8),
+                        new THREE.MeshStandardMaterial({ color: 0xffff00 })
+                    );
+                    mesh.position.y = 0.4;
+                    babyGroup.add(mesh);
+                });
 
-                gltfLoader.load(
-                    ASSET_URLS.babyModel,
-                    (gltf) => {
-                        const model = gltf.scene;
-                        model.scale.set(0.4, 0.4, 0.4);
-                        babyGroup.add(model);
-                    },
-                    undefined,
-                    () => {
-                        const fallback = new THREE.Mesh(
-                            new THREE.SphereGeometry(0.4, 8, 8),
-                            new THREE.MeshStandardMaterial({ color: 0xffff00 })
-                        );
-                        fallback.position.y = 0.4;
-                        babyGroup.add(fallback);
-                    }
-                );
-
-                babies.push({ mesh: babyGroup, ring: ring, rescued: false });
+                babies.push({ mesh: babyGroup, rescued: false });
             });
         }
 
         function spawnGuards() {
-            const guardPositions = [
-                { x: 0, z: -10 },
-                { x: 10, z: 0 }
-            ];
-
-            guardPositions.forEach(pos => {
+            const positions = [{ x: 0, z: -10 }, { x: 10, z: 0 }];
+            positions.forEach(pos => {
                 const guardGroup = new THREE.Group();
                 guardGroup.position.set(pos.x, 0, pos.z);
                 scene.add(guardGroup);
 
-                gltfLoader.load(
-                    ASSET_URLS.guardModel,
-                    (gltf) => {
-                        const model = gltf.scene;
-                        model.scale.set(0.7, 0.7, 0.7);
-                        guardGroup.add(model);
-                    },
-                    undefined,
-                    () => {
-                        const fallback = new THREE.Mesh(
-                            new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
-                            new THREE.MeshStandardMaterial({ color: 0xff3300 })
-                        );
-                        fallback.position.y = 0.75;
-                        guardGroup.add(fallback);
-                    }
-                );
+                gltfLoader.load(ASSETS.guardModel, (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(0.7, 0.7, 0.7);
+                    guardGroup.add(model);
+                }, undefined, () => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
+                        new THREE.MeshStandardMaterial({ color: 0xff3300 })
+                    );
+                    mesh.position.y = 0.75;
+                    guardGroup.add(mesh);
+                });
 
                 guards.push({
                     mesh: guardGroup,
@@ -456,6 +426,24 @@
                     max: pos.x === 0 ? -6 : 14
                 });
             });
+        }
+
+        function bindTouchControls() {
+            const bindBtn = (id, key) => {
+                const btn = document.getElementById(id);
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+                btn.addEventListener('mousedown', () => { keys[key] = true; });
+                btn.addEventListener('mouseup', () => { keys[key] = false; });
+            };
+
+            bindBtn('btn-up', 'w');
+            bindBtn('btn-down', 's');
+            bindBtn('btn-left', 'a');
+            bindBtn('btn-right', 'd');
+
+            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         }
 
         function checkWallCollision(newPos) {
@@ -469,11 +457,84 @@
             return false;
         }
 
+        // Render GPS Minimap Radar
+        function updateGPS() {
+            const gpsCanvas = document.getElementById('gps-canvas');
+            const ctx = gpsCanvas.getContext('2d');
+            ctx.clearRect(0, 0, 110, 110);
+
+            const mapScale = 2.2; 
+            const centerX = 55;
+            const centerY = 55;
+
+            // Draw Maze Wall Outlines on GPS
+            ctx.fillStyle = '#112233';
+            const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
+            for (let r = 0; r < MAZE_SIZE; r++) {
+                for (let c = 0; c < MAZE_SIZE; c++) {
+                    if (mazeGrid[r][c] === 1) {
+                        const wx = (c * CELL_SIZE - offset) * mapScale + centerX;
+                        const wz = (r * CELL_SIZE - offset) * mapScale + centerY;
+                        ctx.fillRect(wx - 4, wz - 4, 8, 8);
+                    }
+                }
+            }
+
+            // Draw Baby Snails (Yellow Dots)
+            ctx.fillStyle = '#ffff00';
+            babies.forEach(b => {
+                if (!b.rescued) {
+                    const bx = b.mesh.position.x * mapScale + centerX;
+                    const bz = b.mesh.position.z * mapScale + centerY;
+                    ctx.beginPath();
+                    ctx.arc(bx, bz, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Draw Guards (Red Dots)
+            ctx.fillStyle = '#ff0055';
+            guards.forEach(g => {
+                const gx = g.mesh.position.x * mapScale + centerX;
+                const gz = g.mesh.position.z * mapScale + centerY;
+                ctx.beginPath();
+                ctx.arc(gx, gz, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Liberty Bell (Cyan Blinking Dot)
+            if (bellGroup) {
+                ctx.fillStyle = '#00ffff';
+                const lx = bellGroup.position.x * mapScale + centerX;
+                const lz = bellGroup.position.z * mapScale + centerY;
+                ctx.beginPath();
+                ctx.arc(lx, lz, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Player (Pink Arrow / Triangle)
+            if (snailGroup) {
+                const px = snailGroup.position.x * mapScale + centerX;
+                const pz = snailGroup.position.z * mapScale + centerY;
+
+                ctx.save();
+                ctx.translate(px, pz);
+                ctx.rotate(-snailGroup.rotation.y);
+                ctx.fillStyle = '#ff007f';
+                ctx.beginPath();
+                ctx.moveTo(0, -6);
+                ctx.lineTo(-4, 5);
+                ctx.lineTo(4, 5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
         function animate() {
             if (isGameOver) return;
             requestAnimationFrame(animate);
 
-            // --- Freeze Timer Logic ---
             if (isFrozen) {
                 freezeTimer -= 16;
                 if (freezeTimer <= 0) {
@@ -482,14 +543,13 @@
                 }
             }
 
-            // --- Player Movement (Disabled when frozen) ---
             if (!isFrozen) {
-                if (keys['a'] || keys['arrowleft']) snailGroup.rotation.y += ROT_SPEED;
-                if (keys['d'] || keys['arrowright']) snailGroup.rotation.y -= ROT_SPEED;
+                if (keys['a']) snailGroup.rotation.y += ROT_SPEED;
+                if (keys['d']) snailGroup.rotation.y -= ROT_SPEED;
 
                 let moveDistance = 0;
-                if (keys['w'] || keys['arrowup']) moveDistance = SPEED;
-                if (keys['s'] || keys['arrowdown']) moveDistance = -SPEED / 2;
+                if (keys['w']) moveDistance = SPEED;
+                if (keys['s']) moveDistance = -SPEED / 2;
 
                 if (moveDistance !== 0) {
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
@@ -500,56 +560,47 @@
                 }
             }
 
-            // --- Liberty Bell Bouncing & Proximity Logic ---
             if (bellGroup) {
                 bellGroup.rotation.y += 0.02;
-
                 const nextBellX = bellGroup.position.x + bellVelocity.x;
                 const nextBellZ = bellGroup.position.z + bellVelocity.z;
 
-                // Wall bouncing check for Bell
                 if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
                 else bellGroup.position.x = nextBellX;
 
                 if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
                 else bellGroup.position.z = nextBellZ;
 
-                // Player proximity check (triggers freeze)
                 if (!isFrozen && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                     isFrozen = true;
-                    freezeTimer = 2500; // Freeze player for 2.5 seconds
+                    freezeTimer = 2500;
                     document.getElementById('status-msg').style.display = 'block';
                 }
             }
 
-            // --- World-Space Follow Camera ---
-            const cameraDistance = 5.0;
-            const cameraHeight = 3.5;
-
-            const camX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * cameraDistance;
-            const camZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * cameraDistance;
-
-            camera.position.set(camX, snailGroup.position.y + cameraHeight, camZ);
+            // Follow Camera
+            const camDistance = 5.0;
+            const camHeight = 3.5;
+            camera.position.x = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * camDistance;
+            camera.position.z = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * camDistance;
+            camera.position.y = snailGroup.position.y + camHeight;
             camera.lookAt(snailGroup.position.x, snailGroup.position.y + 1.0, snailGroup.position.z);
 
-            // Babies check
+            // Baby collection
             babies.forEach(baby => {
                 if (!baby.rescued) {
                     baby.mesh.rotation.y += 0.02;
-                    baby.ring.scale.setScalar(1 + Math.sin(Date.now() * 0.005) * 0.1);
-
                     if (snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
                         baby.rescued = true;
                         scene.remove(baby.mesh);
                         rescuedCount++;
                         document.getElementById('rescued-count').innerText = `${rescuedCount} / ${TOTAL_BABIES}`;
-
-                        if (rescuedCount === TOTAL_BABIES) triggerEndGame(true);
+                        if (rescuedCount === TOTAL_BABIES) endGame(true);
                     }
                 }
             });
 
-            // Guards check
+            // Guards
             guards.forEach(guard => {
                 if (guard.axis === 'z') {
                     guard.mesh.position.z += 0.04 * guard.dir;
@@ -560,14 +611,15 @@
                 }
 
                 if (snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
-                    triggerEndGame(false);
+                    endGame(false);
                 }
             });
 
+            updateGPS();
             renderer.render(scene, camera);
         }
 
-        function triggerEndGame(isWin) {
+        function endGame(isWin) {
             isGameOver = true;
             const modal = document.getElementById('game-over-modal');
             const title = document.getElementById('modal-title');
@@ -576,17 +628,13 @@
             if (isWin) {
                 title.innerText = "MISSION COMPLETE!";
                 title.style.color = "#00ffcc";
-                msg.innerText = "You rescued all the baby snails safely!";
+                msg.innerText = "You rescued all baby snails!";
             } else {
                 title.innerText = "CAUGHT BY GUARD!";
                 title.style.color = "#ff007f";
                 msg.innerText = "A guard spotted you!";
             }
             modal.style.display = 'flex';
-        }
-
-        function resetGame() {
-            location.reload();
         }
 
         function onWindowResize() {
