@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Armored Snail: Level 1 Survival</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; touch-action: none; user-select: none; }
         #ui { position: absolute; top: 10px; left: 10px; color: #00ffcc; font-size: 15px; font-weight: bold; pointer-events: none; z-index: 10; line-height: 1.5; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
         
         .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
@@ -37,8 +37,57 @@
             box-shadow: 0 0 12px #00ffcc; 
         }
 
-        #status-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,5,8,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-size: 28px; font-weight: bold; z-index: 100; text-align: center; display: none; text-shadow: 0 0 10px #00ffcc; }
-        #status-screen button { margin-top: 20px; padding: 12px 24px; background: #00ffcc; border: none; color: #050508; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        #game-over-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 25, 0.95);
+            border: 2px solid #00ffcc;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            color: white;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+            pointer-events: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
+            min-width: 280px;
+        }
+
+        .star-rating {
+            font-size: 32px;
+            color: #444;
+            letter-spacing: 5px;
+        }
+
+        .star-gold {
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+        }
+
+        .modal-btn {
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #btn-next-level {
+            background: #00ffcc;
+            color: #050508;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
+        }
+
+        #btn-restart {
+            background: #ff007f;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -51,9 +100,12 @@
     
     <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
 
-    <div id="status-screen">
-        <div id="status-text">LEVEL 1 COMPLETE</div>
-        <button onclick="location.reload()">Play Again</button>
+    <div id="game-over-modal">
+        <h2 id="modal-title" style="margin:0; color:#00ffcc;">LEVEL 1 VICTORY!</h2>
+        <div id="star-container" class="star-rating">★ ★ ★</div>
+        <p id="modal-msg">You safely returned all baby snails home!</p>
+        <button id="btn-next-level" class="modal-btn" onclick="goToNextLevel()">NEXT LEVEL</button>
+        <button id="btn-restart" class="modal-btn" onclick="retryCurrentLevel()">RETRY LEVEL</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -74,7 +126,6 @@
         const loader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
-        // Helper function to dynamically snap models so their feet/bottom sit at y = 0
         function alignModelToGround(model) {
             const box = new THREE.Box3().setFromObject(model);
             model.position.y -= box.min.y;
@@ -89,7 +140,6 @@
         scene.add(dirLight);
 
         // Ground Image Texture Loading
-        // Replace 'floor_texture.jpg' with your actual ground image filename
         const floorTexture = textureLoader.load('1785671824766.png', function (tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -108,7 +158,6 @@
         scene.add(floor);
 
         // Wall Image Texture Loading
-        // Replace 'wall_texture.jpg' with your actual wall image filename
         const wallTexture = textureLoader.load('1787589407750~2.jpg', function (tex) {
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
@@ -260,7 +309,7 @@
                 timeLeft--;
                 document.getElementById('timer').innerText = timeLeft;
                 if (timeLeft === 0 && score < 2) {
-                    endGame("TIME UP - MISSION FAILED");
+                    endGame(false, "TIME UP - MISSION FAILED");
                 }
             }
         }, 1000);
@@ -307,10 +356,52 @@
             fill.style.background = health < 30 ? '#ff3300' : '#00ffcc';
         }
 
-        function endGame(message) {
+        function endGame(isWin, customMsg) {
             gameOver = true;
-            document.getElementById('status-text').innerText = message;
-            document.getElementById('status-screen').style.display = 'flex';
+            const modal = document.getElementById('game-over-modal');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-msg');
+            const starContainer = document.getElementById('star-container');
+            const nextBtn = document.getElementById('btn-next-level');
+            const retryBtn = document.getElementById('btn-restart');
+
+            if (isWin) {
+                title.innerText = "LEVEL 1 COMPLETE!";
+                title.style.color = "#00ffcc";
+                msg.innerText = "You successfully escorted all baby snails back to home base!";
+
+                nextBtn.style.display = 'inline-block';
+                retryBtn.style.display = 'none';
+
+                let stars = 1;
+                if (health >= 80) stars = 3;
+                else if (health >= 40) stars = 2;
+
+                let starHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < stars) starHTML += '<span class="star-gold">★</span> ';
+                    else starHTML += '<span>★</span> ';
+                }
+                starContainer.innerHTML = starHTML;
+                starContainer.style.display = 'block';
+            } else {
+                title.innerText = customMsg || "MISSION FAILED!";
+                title.style.color = "#ff007f";
+                msg.innerText = "You didn't make it to home base in time!";
+                starContainer.style.display = 'none';
+
+                nextBtn.style.display = 'none';
+                retryBtn.style.display = 'inline-block';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function retryCurrentLevel() {
+            location.reload();
+        }
+
+        function goToNextLevel() {
+            window.location.href = 'level2.html'; // Update this to match your Level 2 file name
         }
 
         function canMoveTo(nextX, nextZ) {
@@ -399,7 +490,7 @@
                 }
             });
 
-            // Bullet Movement & Wall Collision
+             // Bullet Movement & Collision (Player Head + Baby Trail)
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -420,14 +511,28 @@
                     continue;
                 }
 
-                let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
+                let hitDetected = false;
 
-                if (distToPlayer < 0.9) {
+                // 1. Direct hit on Player
+                if (b.mesh.position.distanceTo(snailGroup.position) < 0.9) {
+                    hitDetected = true;
+                }
+
+                // 2. Hit on any trailing baby in the chain
+                if (!hitDetected) {
+                    carriedBabies.forEach(baby => {
+                        if (b.mesh.position.distanceTo(baby.position) < 0.6) {
+                            hitDetected = true;
+                        }
+                    });
+                }
+
+                if (hitDetected) {
                     health = Math.max(0, health - 15);
                     updateHealthBar();
                     scene.remove(b.mesh);
                     bullets.splice(i, 1);
-                    if (health <= 0) endGame("GAME OVER - SHOT DOWN");
+                    if (health <= 0) endGame(false, "GAME OVER - SHOT DOWN");
                     continue;
                 }
 
@@ -462,7 +567,7 @@
                 carriedBabies = [];
 
                 if (score >= 2) {
-                    endGame("LEVEL 1 VICTORY!");
+                    endGame(true);
                 }
             }
 
