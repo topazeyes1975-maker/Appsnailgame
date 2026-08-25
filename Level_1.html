@@ -11,6 +11,8 @@
         .health-bar-container { width: 160px; height: 14px; background: rgba(255,255,255,0.1); border: 2px solid #00ffcc; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 5px; }
         #health-fill { width: 100%; height: 100%; background: #00ffcc; transition: width 0.2s ease; box-shadow: 0 0 8px #00ffcc; }
 
+        #radar { position: absolute; top: 10px; right: 10px; border: 2px solid #00ffcc; border-radius: 50%; background: rgba(5, 5, 8, 0.85); box-shadow: 0 0 10px rgba(0,255,204,0.4); z-index: 10; }
+
         .joystick { 
             position: absolute; 
             bottom: 30px; 
@@ -97,6 +99,9 @@
         Health: <div class="health-bar-container"><div id="health-fill"></div></div><br>
         Time Left: <span id="timer">45</span>
     </div>
+
+    <!-- Mini-Map Canvas -->
+    <canvas id="radar" width="80" height="80"></canvas>
     
     <div id="left-stick" class="joystick"><div id="left-knob" class="stick-knob"></div></div>
 
@@ -116,7 +121,7 @@
         scene.background = new THREE.Color(0x050508);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 12, 10);
+        camera.position.set(0, 8, 10);
         camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -277,8 +282,8 @@
 
             enemies.push({ 
                 mesh: enemyGroup, 
-                speedX: (Math.random() - 0.5) * 0.03, 
-                speedZ: (Math.random() - 0.5) * 0.03,
+                speedX: (Math.random() - 0.5) * 0.05 + 0.02, 
+                speedZ: (Math.random() - 0.5) * 0.05 + 0.02,
                 shootCooldown: Math.random() * 80 + 40 
             });
         }
@@ -314,7 +319,7 @@
             }
         }, 1000);
 
-        // --- KEYBOARD CONTROLS (GLOBAL) ---
+        // KEYBOARD CONTROLS
         const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
         window.addEventListener('keydown', (e) => {
@@ -426,6 +431,32 @@
             return true;
         }
 
+        function drawRadar() {
+            const radarCanvas = document.getElementById('radar');
+            const ctx = radarCanvas.getContext('2d');
+            ctx.clearRect(0, 0, 80, 80);
+
+            // Draw Snail Dot (Cyan)
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath();
+            ctx.arc(40 + (snailGroup.position.x * 1.5), 40 + (snailGroup.position.z * 1.5), 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Enemies (Red)
+            ctx.fillStyle = '#ff0055';
+            enemies.forEach(en => {
+                ctx.beginPath();
+                ctx.arc(40 + (en.mesh.position.x * 1.5), 40 + (en.mesh.position.z * 1.5), 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Home Base (Yellow)
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(40 + (homeBaseGroup.position.x * 1.5), 40 + (homeBaseGroup.position.z * 1.5), 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             if (gameOver) return;
@@ -451,7 +482,6 @@
                 let finalMoveX = moveX !== 0 ? moveX : keyX;
                 let finalMoveZ = moveZ !== 0 ? moveZ : keyZ;
 
-                // Normalize diagonal keyboard movement
                 if (keyX !== 0 && keyZ !== 0 && moveX === 0 && moveZ === 0) {
                     finalMoveX *= 0.7071;
                     finalMoveZ *= 0.7071;
@@ -468,6 +498,29 @@
                 }
             }
 
+               // Move Enemies & Shoot
+            enemies.forEach(en => {
+                let nextEnX = en.mesh.position.x + en.speedX;
+                let nextEnZ = en.mesh.position.z + en.speedZ;
+
+                if (Math.abs(nextEnX) > 18) en.speedX *= -1;
+                else en.mesh.position.x = nextEnX;
+
+                if (Math.abs(nextEnZ) > 18) en.speedZ *= -1;
+                else en.mesh.position.z = nextEnZ;
+
+                en.shootCooldown--;
+                if (en.shootCooldown <= 0) {
+                    en.shootCooldown = 100 + Math.random() * 60;
+                    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+                    bullet.position.copy(en.mesh.position);
+                    bullet.position.y = 0.8;
+                    const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
+                    scene.add(bullet);
+                    bullets.push({ mesh: bullet, dir: dir, speed: 0.10 });
+                }
+            });
+
             // Move Bell Hazard
             bellGroup.position.add(bellVelocity);
             if (Math.abs(bellGroup.position.x) > 18) bellVelocity.x *= -1;
@@ -477,7 +530,8 @@
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 4.0; 
             }
-  // Bullet Movement & Collision
+
+            // Bullet Movement & Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -556,10 +610,13 @@
                 }
             }
 
+            // Camera follow matching Level 2 angled style
             camera.position.x = snailGroup.position.x;
-            camera.position.z = snailGroup.position.z + 10;
+            camera.position.y = snailGroup.position.y + 7;
+            camera.position.z = snailGroup.position.z + 8;
             camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.5, snailGroup.position.z);
 
+            drawRadar();
             renderer.render(scene, camera);
         }
         animate();
@@ -572,4 +629,3 @@
     </script>
 </body>
 </html>
-            
