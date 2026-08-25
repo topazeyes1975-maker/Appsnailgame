@@ -122,10 +122,10 @@ plantGroup.position.y = -2; // Shifted plant down from Y: 0 to Y: -2
         const snailGroup = new THREE.Group();
 // Move snail position down so it rests on top of the lowered plant leaf
 snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf surface
-        const shellGeo = new THREE.SphereGeometry(0.5, .2, 32);
+        const shellGeo = new THREE.SphereGeometry(0.5, -2, 32);
         const shellMat = new THREE.MeshStandardMaterial({ color: 0xffb703 });
         const shell = new THREE.Mesh(shellGeo, shellMat);
-        shell.position.set(0, 2.5, 0);
+        shell.position.set(0, -2, 0);
         snailGroup.add(shell);
 
         scene.add(snailGroup);
