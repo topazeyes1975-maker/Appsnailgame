@@ -245,8 +245,11 @@
       initShowcase3D(); // Render 3D preview boxes on demand
     }
 
+    // Read saved level or default to level 1
     let currentLevel = localStorage.getItem('savedGameLevel') || 1;
-    const startBtn = document.getElementById('Level_2.html');
+    
+    // Select the button using its HTML id attribute
+    const startBtn = document.getElementById('start-level-btn');
 
     if (currentLevel > 1) {
       startBtn.innerText = "Continue Level " + currentLevel;
@@ -255,7 +258,8 @@
     }
 
     startBtn.addEventListener('click', () => {
-      window.location.href = `./level${currentLevel}.html`;
+      // Dynamic routing to Level_X.html (matching exact file naming)
+      window.location.href = `Level_${currentLevel}.html`;
     });
 
     function goToHomeBase() {
