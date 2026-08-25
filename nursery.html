@@ -81,8 +81,8 @@
         scene.fog = new THREE.FogExp2(0x0b0d19, 0.03);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 3, 8);
-        camera.lookAt(0, 1, 0);
+camera.position.set(0, 3, 12); // Moved back from 8 to 12
+camera.lookAt(0, -0.5, 0);      // Shifted focus lower on the screen
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -100,7 +100,8 @@
 
         // --- COSMIC NURSERY PLANT (Placeholder Mesh) ---
         const plantGroup = new THREE.Group();
-        
+plantGroup.position.y = -2; // Shifted plant down from Y: 0 to Y: -2
+
         // Base / Stem
         const stemGeo = new THREE.CylinderGeometry(0.2, 0.5, 2, 16);
         const stemMat = new THREE.MeshStandardMaterial({ color: 0x2a9d8f, roughness: 0.3 });
@@ -119,6 +120,8 @@
 
         // --- ACTIVE 3D SNAIL PLACEHOLDER ---
         const snailGroup = new THREE.Group();
+// Move snail position down so it rests on top of the lowered plant leaf
+snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf surface
         const shellGeo = new THREE.SphereGeometry(0.5, 32, 32);
         const shellMat = new THREE.MeshStandardMaterial({ color: 0xffb703 });
         const shell = new THREE.Mesh(shellGeo, shellMat);
