@@ -329,6 +329,17 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === activeTouchId) updateStick(e.changedTouches[i]);
             }
+            // --- KEYBOARD CONTROLS FOR COMPUTERS ---
+const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+window.addEventListener('keydown', (e) => {
+    if (e.code in keys) keys[e.code] = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code in keys) keys[e.code] = false;
+});
+            
         });
         window.addEventListener('touchend', (e) => {
             for (let i = 0; i < e.changedTouches.length; i++) {
