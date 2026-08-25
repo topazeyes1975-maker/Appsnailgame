@@ -125,7 +125,7 @@ snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf
         const shellGeo = new THREE.SphereGeometry(0.5, -2, 32);
         const shellMat = new THREE.MeshStandardMaterial({ color: 0xffb703 });
         const shell = new THREE.Mesh(shellGeo, shellMat);
-        shell.position.set(0, -2, 0);
+        shell.position.set(0, 1, 0);
         snailGroup.add(shell);
 
         scene.add(snailGroup);
