@@ -72,6 +72,13 @@
         document.body.appendChild(renderer.domElement);
 
         const loader = new THREE.GLTFLoader();
+        const textureLoader = new THREE.TextureLoader();
+
+        // Helper function to dynamically snap models so their feet/bottom sit at y = 0
+        function alignModelToGround(model) {
+            const box = new THREE.Box3().setFromObject(model);
+            model.position.y -= box.min.y;
+        }
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
@@ -81,25 +88,13 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        // Procedural Grid Textures
-        function createGridTexture(mainColor, lineColor) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = mainColor;
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = lineColor;
-            ctx.lineWidth = 4;
-            ctx.strokeRect(0, 0, 256, 256);
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            return texture;
-        }
-
-        const floorTexture = createGridTexture('#0a0a12', '#00ffcc');
-        floorTexture.repeat.set(12, 12);
+        // Ground Image Texture Loading
+        // Replace 'floor_texture.jpg' with your actual ground image filename
+        const floorTexture = textureLoader.load('1785671824766.png', function (tex) {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(12, 12);
+        });
 
         const floorGeo = new THREE.PlaneGeometry(100, 100);
         const floorMat = new THREE.MeshStandardMaterial({ 
@@ -109,29 +104,17 @@
         });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.05;
+        floor.position.y = 0;
         scene.add(floor);
 
-        // Home Base Model
-        const homeBaseGroup = new THREE.Group();
-        homeBaseGroup.position.set(1, 0, 1);
-        scene.add(homeBaseGroup);
-
-        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
-        const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
-        homeBaseGroup.add(fallbackBase);
-
-        loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
-            homeBaseGroup.remove(fallbackBase);
-            const baseModel = gltf.scene;
-            baseModel.scale.set(1.5, 1.5, 1.5);
-            homeBaseGroup.add(baseModel);
+        // Wall Image Texture Loading
+        // Replace 'wall_texture.jpg' with your actual wall image filename
+        const wallTexture = textureLoader.load('1787589407750~2.jpg', function (tex) {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(2, 1);
         });
 
-        // Wall Obstacles
-        const wallTexture = createGridTexture('#121220', '#ff0055');
-        wallTexture.repeat.set(2, 1);
         const obstacleMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.4, metalness: 0.5 });
         const wallBoundingBoxes = [];
 
@@ -160,6 +143,24 @@
         createWall(-12, 6, 12, 2);
         createWall(12, 6, 12, 2);
 
+        // Home Base Model
+        const homeBaseGroup = new THREE.Group();
+        homeBaseGroup.position.set(1, 0, 1);
+        scene.add(homeBaseGroup);
+
+        const baseGeo = new THREE.BoxGeometry(4, 0.1, 4);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.3 });
+        const fallbackBase = new THREE.Mesh(baseGeo, baseMat);
+        homeBaseGroup.add(fallbackBase);
+
+        loader.load('Meshy_AI_Doorway to Time_1785740856_image-to-3d-texture-compressed.glb', function (gltf) {
+            homeBaseGroup.remove(fallbackBase);
+            const baseModel = gltf.scene;
+            baseModel.scale.set(1.5, 1.5, 1.5);
+            alignModelToGround(baseModel);
+            homeBaseGroup.add(baseModel);
+        });
+
         // Baby Containment Cages
         const roomGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
         const roomMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5, wireframe: true });
@@ -177,12 +178,16 @@
         loader.load('Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', function (gltf) {
             const babyModel1 = gltf.scene.clone();
             babyModel1.scale.set(0.35, 0.35, 0.35);
-            babyModel1.position.set(-14, 0.1, -14);
+            alignModelToGround(babyModel1);
+            babyModel1.position.x = -14;
+            babyModel1.position.z = -14;
             scene.add(babyModel1);
 
             const babyModel2 = gltf.scene.clone();
             babyModel2.scale.set(0.35, 0.35, 0.35);
-            babyModel2.position.set(14, 0.1, -14);
+            alignModelToGround(babyModel2);
+            babyModel2.position.x = 14;
+            babyModel2.position.z = -14;
             scene.add(babyModel2);
 
             rooms.push({ mesh: room1, babyMesh: babyModel1, rescued: false });
@@ -197,12 +202,13 @@
         loader.load('Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb', function (gltf) {
             const bellModel = gltf.scene;
             bellModel.scale.set(0.45, 0.45, 0.45);
+            alignModelToGround(bellModel);
             bellGroup.add(bellModel);
         });
 
         let bellVelocity = new THREE.Vector3(0.04, 0, 0.03);
 
-        // Enemy Shooters (Slower for Level 1)
+        // Enemy Shooters
         const enemies = [];
         const bullets = [];
         const bulletGeo = new THREE.SphereGeometry(0.25, 8, 8);
@@ -216,6 +222,7 @@
             loader.load('Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb', function (gltf) {
                 const humanModel = gltf.scene;
                 humanModel.scale.set(0.45, 0.45, 0.45);
+                alignModelToGround(humanModel);
                 enemyGroup.add(humanModel);
             });
 
@@ -227,7 +234,7 @@
             });
         }
 
-        // Main Snail Character (No Shield)
+        // Main Snail Character
         const snailGroup = new THREE.Group();
         scene.add(snailGroup);
         snailGroup.position.set(0, 0, 10);
@@ -235,6 +242,7 @@
         loader.load('Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', function (gltf) {
             const character = gltf.scene;
             character.scale.set(0.45, 0.45, 0.45);
+            alignModelToGround(character);
             snailGroup.add(character);
         });
 
@@ -349,12 +357,35 @@
                 freezeTimer = 4.0; 
             }
 
-            // Move Shooters & Bullets
+            // Enemy Movement & Wall Bounding Check
             enemies.forEach(en => {
-                en.mesh.position.x += en.speedX;
-                en.mesh.position.z += en.speedZ;
-                if (Math.abs(en.mesh.position.x) > 18) en.speedX *= -1;
-                if (Math.abs(en.mesh.position.z) > 18) en.speedZ *= -1;
+                let nextEnX = en.mesh.position.x + en.speedX;
+                let nextEnZ = en.mesh.position.z + en.speedZ;
+
+                let enemyBox = new THREE.Box3(
+                    new THREE.Vector3(nextEnX - 0.6, 0, nextEnZ - 0.6),
+                    new THREE.Vector3(nextEnX + 0.6, 2, nextEnZ + 0.6)
+                );
+
+                let hitWall = false;
+                for (let box of wallBoundingBoxes) {
+                    if (enemyBox.intersectsBox(box)) {
+                        hitWall = true;
+                        break;
+                    }
+                }
+
+                if (hitWall || Math.abs(nextEnX) > 18) {
+                    en.speedX *= -1;
+                } else {
+                    en.mesh.position.x = nextEnX;
+                }
+
+                if (hitWall || Math.abs(nextEnZ) > 18) {
+                    en.speedZ *= -1;
+                } else {
+                    en.mesh.position.z = nextEnZ;
+                }
 
                 en.shootCooldown--;
                 if (en.shootCooldown <= 0) {
@@ -368,6 +399,7 @@
                 }
             });
 
+            // Bullet Movement & Wall Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -390,7 +422,6 @@
 
                 let distToPlayer = b.mesh.position.distanceTo(snailGroup.position);
 
-                // Direct hit logic (No shield protection)
                 if (distToPlayer < 0.9) {
                     health = Math.max(0, health - 15);
                     updateHealthBar();
@@ -420,7 +451,6 @@
                 let baby = carriedBabies[i];
                 let targetPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0, 1.2 + (i * 0.8)).applyAxisAngle(new THREE.Vector3(0,1,0), snailGroup.rotation.y));
                 baby.position.lerp(targetPos, 0.1);
-                baby.position.y = 0.1;
             }
 
             // Drop Off
