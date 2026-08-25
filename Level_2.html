@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue: Virtual Joystick & Wall Texture Fix</title>
+    <title>Snail Rescue: Smooth Movement & GPS Fix</title>
     <style>
         body {
             margin: 0;
@@ -123,7 +123,6 @@
             color: #ff007f;
         }
 
-        /* Virtual Joystick Container (Positioned inward off navigation bar) */
         #joystick-zone {
             position: absolute;
             bottom: 60px;
@@ -260,6 +259,10 @@
         let keys = { w: false, a: false, s: false, d: false };
         let babies = [], guards = [], projectiles = [], walls = [];
 
+        // Global memory structures to prevent garbage collection frame hits
+        const tempPlayerBox = new THREE.Box3();
+        const tempGuardVector = new THREE.Vector3();
+
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
@@ -286,7 +289,7 @@
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
@@ -337,7 +340,6 @@
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            /* Fixed Wall Texture Implementation */
             const wallTex = textureLoader.load(ASSETS.wallTex, 
                 (t) => {
                     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -482,7 +484,6 @@
             });
         }
 
-        /* Virtual Analog Joystick Logic */
         function bindJoystick() {
             const zone = document.getElementById('joystick-zone');
             const stick = document.getElementById('joystick-stick');
@@ -534,7 +535,6 @@
             zone.addEventListener('touchend', handleEnd);
             zone.addEventListener('touchcancel', handleEnd);
 
-            // Desktop Mouse Support
             let isMouseDown = false;
             zone.addEventListener('mousedown', (e) => {
                 isMouseDown = true;
@@ -550,7 +550,6 @@
                 }
             });
 
-            // Keyboard Backup Controls
             window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) keys.w = true;
                 if (['s','ArrowDown'].includes(e.key)) keys.s = true;
@@ -595,13 +594,13 @@
             }
         }
 
+        // OPTIMIZED: Reuses tempPlayerBox instead of instantiating new objects every tick
         function checkWallCollision(newPos, radius = 0.4) {
-            const box = new THREE.Box3();
-            box.min.set(newPos.x - radius, 0, newPos.z - radius);
-            box.max.set(newPos.x + radius, 1.5, newPos.z + radius);
+            tempPlayerBox.min.set(newPos.x - radius, 0, newPos.z - radius);
+            tempPlayerBox.max.set(newPos.x + radius, 1.5, newPos.z + radius);
 
-            for (let wallBox of walls) {
-                if (box.intersectsBox(wallBox)) return true;
+            for (let i = 0; i < walls.length; i++) {
+                if (tempPlayerBox.intersectsBox(walls[i])) return true;
             }
             return false;
         }
@@ -610,9 +609,9 @@
             const gpsCanvas = document.getElementById('gps-canvas');
             const ctx = gpsCanvas.getContext('2d');
             ctx.clearRect(0, 0, 100, 100);
-// Automatically fits any grid size neatly into the 100px radar canvas
-const currentMazeSize = mazeGrid.length; 
-const mapScale = 80 / (currentMazeSize * CELL_SIZE); 
+
+            const currentMazeSize = mazeGrid.length; 
+            const mapScale = 80 / (currentMazeSize * CELL_SIZE); 
                 
             const centerX = 50;
             const centerY = 50;
@@ -665,7 +664,7 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
                 ctx.save();
                 ctx.translate(px, pz);
                 ctx.rotate(-snailGroup.rotation.y);
-                ctx.fillStyle = '#39ff14';
+                ctx.fillStyle = '#39ff14'; // Neon Green
                 ctx.beginPath();
                 ctx.moveTo(0, -5);
                 ctx.lineTo(-3, 4);
@@ -691,16 +690,14 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
             }
 
             if (!isFrozen && snailGroup) {
-                /* Combine Joystick Input with Keyboard Input */
                 let inputX = joystickVector.x;
-                let inputY = -joystickVector.y; // Invert Y for forward direction
+                let inputY = -joystickVector.y;
 
                 if (keys.a) inputX -= 1.0;
                 if (keys.d) inputX += 1.0;
                 if (keys.w) inputY += 1.0;
                 if (keys.s) inputY -= 1.0;
 
-                // Turn Snail smoothly toward direction of movement or apply turn
                 if (Math.abs(inputX) > 0.1) {
                     snailGroup.rotation.y -= inputX * ROT_SPEED;
                 }
@@ -733,17 +730,17 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
                 }
             }
 
-            /* Guards Pursuit Logic */
+            // OPTIMIZED: Reuses tempGuardVector to save processing power
             guards.forEach(guard => {
                 if (snailGroup) {
-                    const dirToPlayer = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
-                    dirToPlayer.y = 0;
-                    const distToPlayer = dirToPlayer.length();
+                    tempGuardVector.subVectors(snailGroup.position, guard.mesh.position);
+                    tempGuardVector.y = 0;
+                    const distToPlayer = tempGuardVector.length();
 
                     if (distToPlayer > 0.1) {
-                        dirToPlayer.normalize();
-                        const nextX = guard.mesh.position.x + dirToPlayer.x * GUARD_SPEED;
-                        const nextZ = guard.mesh.position.z + dirToPlayer.z * GUARD_SPEED;
+                        tempGuardVector.normalize();
+                        const nextX = guard.mesh.position.x + tempGuardVector.x * GUARD_SPEED;
+                        const nextZ = guard.mesh.position.z + tempGuardVector.z * GUARD_SPEED;
 
                         if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) {
                             guard.mesh.position.x = nextX;
@@ -752,7 +749,7 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
                             guard.mesh.position.z = nextZ;
                         }
 
-                        guard.mesh.rotation.y = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+                        guard.mesh.rotation.y = Math.atan2(tempGuardVector.x, tempGuardVector.z);
                     }
 
                     if (distToPlayer < 12 && (now - guard.lastShot > 1600)) {
@@ -766,7 +763,6 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
                 }
             });
 
-            /* Projectile Physics */
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 0.3);
@@ -786,7 +782,6 @@ const mapScale = 80 / (currentMazeSize * CELL_SIZE);
                 }
             }
 
-            /* Dynamic Third-Person Camera Tracking */
             if (snailGroup) {
                 const camDistance = 8.0;
                 const camHeight = 5.0;
