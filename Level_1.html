@@ -314,6 +314,17 @@
             }
         }, 1000);
 
+        // --- KEYBOARD CONTROLS (GLOBAL) ---
+        const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code in keys) keys[e.code] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code in keys) keys[e.code] = false;
+        });
+
         // Joystick Controls
         const stick = document.getElementById('left-stick');
         const knob = document.getElementById('left-knob');
@@ -329,17 +340,6 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === activeTouchId) updateStick(e.changedTouches[i]);
             }
-            // --- KEYBOARD CONTROLS FOR COMPUTERS ---
-const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-
-window.addEventListener('keydown', (e) => {
-    if (e.code in keys) keys[e.code] = true;
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.code in keys) keys[e.code] = false;
-});
-            
         });
         window.addEventListener('touchend', (e) => {
             for (let i = 0; i < e.changedTouches.length; i++) {
@@ -412,7 +412,7 @@ window.addEventListener('keyup', (e) => {
         }
 
         function goToNextLevel() {
-            window.location.href = 'Level_2.html'; // Update this to match your Level 2 file name
+            window.location.href = 'Level_2.html';
         }
 
         function canMoveTo(nextX, nextZ) {
@@ -438,14 +438,33 @@ window.addEventListener('keyup', (e) => {
                 document.getElementById('player-status').innerText = "Active";
                 document.getElementById('player-status').style.color = "#00ffcc";
 
-                let nextX = snailGroup.position.x + (moveX * 0.1);
-                let nextZ = snailGroup.position.z + (moveZ * 0.1);
+                // Calculate Keyboard Input
+                let keyX = 0;
+                let keyZ = 0;
+
+                if (keys.KeyD || keys.ArrowRight) keyX += 1;
+                if (keys.KeyA || keys.ArrowLeft) keyX -= 1;
+                if (keys.KeyS || keys.ArrowDown) keyZ += 1;
+                if (keys.KeyW || keys.ArrowUp) keyZ -= 1;
+
+                // Combine Keyboard + Mobile Touch inputs
+                let finalMoveX = moveX !== 0 ? moveX : keyX;
+                let finalMoveZ = moveZ !== 0 ? moveZ : keyZ;
+
+                // Normalize diagonal keyboard movement
+                if (keyX !== 0 && keyZ !== 0 && moveX === 0 && moveZ === 0) {
+                    finalMoveX *= 0.7071;
+                    finalMoveZ *= 0.7071;
+                }
+
+                let nextX = snailGroup.position.x + (finalMoveX * 0.12);
+                let nextZ = snailGroup.position.z + (finalMoveZ * 0.12);
 
                 if (canMoveTo(nextX, snailGroup.position.z)) snailGroup.position.x = nextX;
                 if (canMoveTo(snailGroup.position.x, nextZ)) snailGroup.position.z = nextZ;
 
-                if (moveX !== 0 || moveZ !== 0) {
-                    snailGroup.rotation.y = Math.atan2(moveX, moveZ);
+                if (finalMoveX !== 0 || finalMoveZ !== 0) {
+                    snailGroup.rotation.y = Math.atan2(finalMoveX, finalMoveZ);
                 }
             }
 
@@ -458,50 +477,7 @@ window.addEventListener('keyup', (e) => {
             if (freezeTimer <= 0 && snailGroup.position.distanceTo(bellGroup.position) < 1.8) {
                 freezeTimer = 4.0; 
             }
-
-            // Enemy Movement & Wall Bounding Check
-            enemies.forEach(en => {
-                let nextEnX = en.mesh.position.x + en.speedX;
-                let nextEnZ = en.mesh.position.z + en.speedZ;
-
-                let enemyBox = new THREE.Box3(
-                    new THREE.Vector3(nextEnX - 0.6, 0, nextEnZ - 0.6),
-                    new THREE.Vector3(nextEnX + 0.6, 2, nextEnZ + 0.6)
-                );
-
-                let hitWall = false;
-                for (let box of wallBoundingBoxes) {
-                    if (enemyBox.intersectsBox(box)) {
-                        hitWall = true;
-                        break;
-                    }
-                }
-
-                if (hitWall || Math.abs(nextEnX) > 18) {
-                    en.speedX *= -1;
-                } else {
-                    en.mesh.position.x = nextEnX;
-                }
-
-                if (hitWall || Math.abs(nextEnZ) > 18) {
-                    en.speedZ *= -1;
-                } else {
-                    en.mesh.position.z = nextEnZ;
-                }
-
-                en.shootCooldown--;
-                if (en.shootCooldown <= 0) {
-                    en.shootCooldown = 100 + Math.random() * 60;
-                    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
-                    bullet.position.copy(en.mesh.position);
-                    bullet.position.y = 0.8;
-                    const dir = new THREE.Vector3().subVectors(snailGroup.position, en.mesh.position).normalize();
-                    scene.add(bullet);
-                    bullets.push({ mesh: bullet, dir: dir, speed: 0.10 });
-                }
-            });
-
-             // Bullet Movement & Collision (Player Head + Baby Trail)
+  // Bullet Movement & Collision
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, b.speed);
@@ -524,12 +500,10 @@ window.addEventListener('keyup', (e) => {
 
                 let hitDetected = false;
 
-                // 1. Direct hit on Player
                 if (b.mesh.position.distanceTo(snailGroup.position) < 0.9) {
                     hitDetected = true;
                 }
 
-                // 2. Hit on any trailing baby in the chain
                 if (!hitDetected) {
                     carriedBabies.forEach(baby => {
                         if (b.mesh.position.distanceTo(baby.position) < 0.6) {
@@ -598,3 +572,4 @@ window.addEventListener('keyup', (e) => {
     </script>
 </body>
 </html>
+            
