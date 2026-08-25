@@ -108,14 +108,25 @@
     }
 
     /* 3D Showcase Grid */
-    .showcase-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 20px;
-      width: 90%;
-      max-width: 1100px;
-      margin: 10px 0 30px 0;
-    }
+/* Evenly Balanced 2x2 Showcase Grid */
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 24px;
+  width: 90%;
+  max-width: 800px;
+  margin: 20px auto 40px auto;
+  justify-content: center;
+}
+
+/* Mobile responsive fallback so single screen phones stay neat */
+@media (max-width: 600px) {
+  .showcase-grid {
+    grid-template-columns: 1fr;
+    max-width: 360px;
+  }
+}
+    
 
     .card {
       background: var(--panel-bg);
