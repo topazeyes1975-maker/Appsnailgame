@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue</title>
+    <title>Snail Rescue - Level 2</title>
     <style>
         body {
             margin: 0;
@@ -203,12 +203,12 @@
     <div id="ui-layer">
         <div id="top-hud">
             <div class="hud-panel">
-                <div id="title">SNAIL RESCUE</div>
+                <div id="title">SNAIL RESCUE - LEVEL 2</div>
                 <div>Health:</div>
                 <div id="health-bar-container">
                     <div id="health-bar-fill"></div>
                 </div>
-                <div>Babies: <span id="rescued-count" class="stat-value">0 / 3</span></div>
+                <div>Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
                 <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
             </div>
 
@@ -226,7 +226,7 @@
     <div id="game-over-modal">
         <h2 id="modal-title" style="margin:0; color:#00ffcc;">MISSION COMPLETE!</h2>
         <div id="star-container" class="star-rating">★ ★ ★</div>
-        <p id="modal-msg">You rescued all baby snails!</p>
+        <p id="modal-msg">You safely returned all baby snails home!</p>
         <button id="btn-restart" onclick="location.reload()">PLAY AGAIN</button>
     </div>
 
@@ -237,7 +237,8 @@
             playerModel: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb',
             babyModel: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb',
             guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb',
-            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb'
+            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb',
+            baseModel: 'home_base_model.glb'
         };
 
         const MAZE_SIZE = 11;
@@ -247,10 +248,10 @@
         const ROT_SPEED = 0.06;
 
         let scene, camera, renderer;
-        let snailGroup, bellGroup;
+        let snailGroup, bellGroup, homeBaseGroup;
         let bellVelocity = { x: 0.05, z: 0.05 };
         let isFrozen = false, freezeTimer = 0;
-        let rescuedCount = 0;
+        let homeCount = 0;
         const TOTAL_BABIES = 3;
         let playerHealth = 100;
         let isGameOver = false;
@@ -259,7 +260,8 @@
         let keys = { w: false, a: false, s: false, d: false };
         let babies = [], guards = [], projectiles = [], walls = [];
 
-        // Global memory structures to prevent garbage collection frame hits
+        const homeBasePos = { x: -16, z: 12 };
+
         const tempPlayerBox = new THREE.Box3();
         const tempGuardVector = new THREE.Vector3();
 
@@ -302,6 +304,7 @@
             scene.add(dirLight);
 
             buildMaze();
+            spawnHomeBase();
             createPlayer();
             spawnLibertyBell();
             spawnBabies();
@@ -371,9 +374,43 @@
             }
         }
 
+        function spawnHomeBase() {
+            homeBaseGroup = new THREE.Group();
+            homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
+            scene.add(homeBaseGroup);
+
+            const baseLight = new THREE.PointLight(0x00ffcc, 2.5, 6);
+            baseLight.position.set(0, 1.5, 0);
+            homeBaseGroup.add(baseLight);
+
+            gltfLoader.load(ASSETS.baseModel, (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                model.position.y = -box.min.y;
+                model.scale.set(0.8, 0.8, 0.8);
+                homeBaseGroup.add(model);
+            }, undefined, () => {
+                const padMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.6, 1.8, 0.1, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x003344, emissive: 0x00ffff, roughness: 0.2 })
+                );
+                padMesh.position.y = 0.05;
+
+                const ringMesh = new THREE.Mesh(
+                    new THREE.TorusGeometry(1.6, 0.08, 8, 32),
+                    new THREE.MeshBasicMaterial({ color: 0x00ffcc })
+                );
+                ringMesh.rotation.x = Math.PI / 2;
+                ringMesh.position.y = 0.1;
+
+                homeBaseGroup.add(padMesh);
+                homeBaseGroup.add(ringMesh);
+            });
+        }
+
         function createPlayer() {
             snailGroup = new THREE.Group();
-            snailGroup.position.set(-16, 0.4, 12);
+            snailGroup.position.set(homeBasePos.x, 0.4, homeBasePos.z);
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -417,7 +454,7 @@
 
         function spawnBabies() {
             const positions = [{ x: 16, z: -16 }, { x: -16, z: -16 }, { x: 16, z: 16 }];
-            positions.forEach(pos => {
+            positions.forEach((pos, idx) => {
                 const babyGroup = new THREE.Group();
                 babyGroup.position.set(pos.x, 0.3, pos.z);
                 scene.add(babyGroup);
@@ -447,7 +484,7 @@
                     babyGroup.add(customBaby);
                 });
 
-                babies.push({ mesh: babyGroup, rescued: false });
+                babies.push({ id: idx, mesh: babyGroup, following: false, returnedHome: false });
             });
         }
 
@@ -594,7 +631,6 @@
             }
         }
 
-        // OPTIMIZED: Reuses tempPlayerBox instead of instantiating new objects every tick
         function checkWallCollision(newPos, radius = 0.4) {
             tempPlayerBox.min.set(newPos.x - radius, 0, newPos.z - radius);
             tempPlayerBox.max.set(newPos.x + radius, 1.5, newPos.z + radius);
@@ -628,9 +664,14 @@
                 }
             }
 
+            const hx = homeBasePos.x * mapScale + centerX;
+            const hz = homeBasePos.z * mapScale + centerY;
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillRect(hx - 4, hz - 4, 8, 8);
+
             ctx.fillStyle = '#ffff00';
             babies.forEach(b => {
-                if (!b.rescued) {
+                if (!b.returnedHome) {
                     const bx = b.mesh.position.x * mapScale + centerX;
                     const bz = b.mesh.position.z * mapScale + centerY;
                     ctx.beginPath();
@@ -664,7 +705,7 @@
                 ctx.save();
                 ctx.translate(px, pz);
                 ctx.rotate(-snailGroup.rotation.y);
-                ctx.fillStyle = '#39ff14'; // Neon Green
+                ctx.fillStyle = '#39ff14';
                 ctx.beginPath();
                 ctx.moveTo(0, -5);
                 ctx.lineTo(-3, 4);
@@ -730,7 +771,6 @@
                 }
             }
 
-            // OPTIMIZED: Reuses tempGuardVector to save processing power
             guards.forEach(guard => {
                 if (snailGroup) {
                     tempGuardVector.subVectors(snailGroup.position, guard.mesh.position);
@@ -763,6 +803,7 @@
                 }
             });
 
+            // Projectile Motion & Multi-Hitbox (Player + Baby Trail) Collision
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 0.3);
@@ -774,7 +815,25 @@
                     continue;
                 }
 
+                let hitDetected = false;
+
+                // Check hit against player head
                 if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.8) {
+                    hitDetected = true;
+                }
+
+                // Check hit against any trailing baby snail body in the chain
+                if (!hitDetected) {
+                    babies.forEach(baby => {
+                        if (baby.following && !baby.returnedHome) {
+                            if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.6) {
+                                hitDetected = true;
+                            }
+                        }
+                    });
+                }
+
+                if (hitDetected) {
                     scene.remove(proj.mesh);
                     projectiles.splice(i, 1);
                     takeDamage(25);
@@ -793,15 +852,38 @@
                 camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.8, snailGroup.position.z);
             }
 
+            let followers = babies.filter(b => b.following && !b.returnedHome);
+
             babies.forEach(baby => {
-                if (!baby.rescued && snailGroup) {
-                    baby.mesh.rotation.y += 0.02;
-                    if (snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
-                        baby.rescued = true;
+                if (baby.returnedHome) return;
+
+                baby.mesh.rotation.y += 0.02;
+
+                if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
+                    baby.following = true;
+                }
+
+                if (baby.following) {
+                    const followIdx = followers.indexOf(baby) + 1;
+                    const targetDistance = followIdx * 1.2;
+
+                    const targetX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * targetDistance;
+                    const targetZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * targetDistance;
+
+                    baby.mesh.position.x += (targetX - baby.mesh.position.x) * 0.1;
+                    baby.mesh.position.z += (targetZ - baby.mesh.position.z) * 0.1;
+
+                    const distToBase = baby.mesh.position.distanceTo(homeBaseGroup.position);
+                    if (distToBase < 1.8) {
+                        baby.following = false;
+                        baby.returnedHome = true;
                         scene.remove(baby.mesh);
-                        rescuedCount++;
-                        document.getElementById('rescued-count').innerText = `${rescuedCount} / ${TOTAL_BABIES}`;
-                        if (rescuedCount === TOTAL_BABIES) endGame(true);
+                        homeCount++;
+                        document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`;
+
+                        if (homeCount === TOTAL_BABIES) {
+                            endGame(true);
+                        }
                     }
                 }
             });
@@ -818,9 +900,9 @@
             const starContainer = document.getElementById('star-container');
 
             if (isWin) {
-                title.innerText = "MISSION COMPLETE!";
+                title.innerText = "LEVEL COMPLETE!";
                 title.style.color = "#00ffcc";
-                msg.innerText = "You rescued all baby snails!";
+                msg.innerText = "You successfully escorted all baby snails back to home base!";
 
                 let stars = 1;
                 if (playerHealth >= 80) stars = 3;
