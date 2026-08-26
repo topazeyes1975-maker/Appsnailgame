@@ -127,23 +127,23 @@
             position: absolute;
             bottom: 60px;
             left: 55px;
-            width: 120px;
-            height: 120px;
-            background: rgba(0, 255, 204, 0.1);
-            border: 2px solid rgba(0, 255, 204, 0.5);
+            width: 130px;
+            height: 130px;
+            background: rgba(0, 255, 204, 0.08);
+            border: 2px solid rgba(0, 255, 204, 0.4);
             border-radius: 50%;
             touch-action: none;
             pointer-events: auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.15);
         }
 
         #joystick-stick {
             width: 50px;
             height: 50px;
-            background: rgba(0, 255, 204, 0.6);
+            background: rgba(0, 255, 204, 0.5);
             border: 2px solid #00ffcc;
             border-radius: 50%;
             position: absolute;
@@ -245,14 +245,15 @@
         const MAZE_SIZE = 11;
         const CELL_SIZE = 4;
         
-        // Units Per Second speeds for delta timing
-        const SPEED = 10.0;
-        const GUARD_SPEED = 4.5;
-        const ROT_SPEED = 3.2;
+        // Tuned movement constants for fine control
+        const SPEED = 8.5;
+        const GUARD_SPEED = 4.0;
+        const ROT_SPEED = 2.2; 
+        const JOYSTICK_DEADZONE = 0.15; // Ignore tiny accidental touches
 
         let scene, camera, renderer, clock;
         let snailGroup, bellGroup, homeBaseGroup;
-        let bellVelocity = { x: 3.0, z: 3.0 };
+        let bellVelocity = { x: 2.5, z: 2.5 };
         let isFrozen = false, freezeTimer = 0;
         let homeCount = 0;
         const TOTAL_BABIES = 3;
@@ -529,7 +530,7 @@
         function bindJoystick() {
             const zone = document.getElementById('joystick-zone');
             const stick = document.getElementById('joystick-stick');
-            const maxRadius = 35;
+            const maxRadius = 40;
             let activeTouchId = null;
 
             function handleMove(clientX, clientY) {
@@ -547,8 +548,14 @@
                 }
 
                 stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                joystickVector.x = deltaX / maxRadius;
-                joystickVector.y = deltaY / maxRadius;
+                
+                // Normalized values between -1 and 1
+                let rawX = deltaX / maxRadius;
+                let rawY = deltaY / maxRadius;
+
+                // Deadzone application
+                joystickVector.x = Math.abs(rawX) < JOYSTICK_DEADZONE ? 0 : rawX;
+                joystickVector.y = Math.abs(rawY) < JOYSTICK_DEADZONE ? 0 : rawY;
             }
 
             function handleEnd() {
@@ -557,8 +564,7 @@
                 joystickVector.y = 0;
                 activeTouchId = null;
             }
-
-            zone.addEventListener('touchstart', (e) => {
+zone.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const touch = e.changedTouches[0];
                 activeTouchId = touch.identifier;
@@ -725,7 +731,7 @@
             if (isGameOver) return;
             requestAnimationFrame(animate);
 
-            const delta = Math.min(clock.getDelta(), 0.1); // Cap delta to prevent huge jumps on tab switch
+            const delta = Math.min(clock.getDelta(), 0.1);
             const now = Date.now();
 
             if (isFrozen) {
@@ -745,18 +751,20 @@
                 if (keys.w) inputY += 1.0;
                 if (keys.s) inputY -= 1.0;
 
-                // Normalize length if combined input exceeds 1.0
-                const inputLen = Math.hypot(inputX, inputY);
-                if (inputLen > 1.0) {
-                    inputX /= inputLen;
-                    inputY /= inputLen;
+                // Lock horizontal turn if pushing mostly straight forward to stop unintended side-to-side drift
+                if (Math.abs(inputY) > 0.65 && Math.abs(inputX) < 0.45) {
+                    inputX = 0;
                 }
 
-                if (Math.abs(inputX) > 0.05) {
-                    snailGroup.rotation.y -= inputX * ROT_SPEED * delta;
+                // Smooth exponential turning curve (reduces erratic jittering)
+                if (Math.abs(inputX) > 0) {
+                    const turnSign = Math.sign(inputX);
+                    const turnMagnitude = Math.pow(Math.abs(inputX), 1.8);
+                    snailGroup.rotation.y -= turnSign * turnMagnitude * ROT_SPEED * delta;
                 }
 
-                if (Math.abs(inputY) > 0.05) {
+                // Smooth straight-line forward & backward translation
+                if (Math.abs(inputY) > 0) {
                     const moveDistance = inputY * SPEED * delta;
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
                     const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
@@ -816,7 +824,6 @@
                 }
             });
 
-            // Projectile Motion & Multi-Hitbox (Player + Baby Trail) Collision
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
@@ -946,3 +953,4 @@
     </script>
 </body>
 </html>
+            
