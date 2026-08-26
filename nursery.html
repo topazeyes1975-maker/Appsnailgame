@@ -94,7 +94,7 @@
         // --- SUPABASE SETUP ---
         const supabaseUrl = 'https://jhgcyiswxubqzqtbhain.supabase.co'; 
         const supabaseKey = 'sb_publishable_0j0PaDVT_pXMJawcf2W8fQ_Lz9B4KoW';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         // --- THREE.JS SCENE SETUP ---
         const container = document.getElementById('viewport');
@@ -194,9 +194,9 @@
         // --- SUPABASE SAVE & LOAD ---
         async function loadUserProgress() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) {
-                    const { data, error } = await supabase
+                    const { data, error } = await supabaseClient
                         .from('user_nursery')
                         .select('current_level')
                         .eq('user_id', user.id)
@@ -216,9 +216,9 @@
 
         async function saveUserProgress(newLevel) {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) {
-                    await supabase
+                    await supabaseClient
                         .from('user_nursery')
                         .upsert({ 
                             user_id: user.id, 
