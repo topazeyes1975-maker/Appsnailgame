@@ -8,20 +8,27 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GLTF Loader Extension -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body { background-color: #0b0d19; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         
-        /* 3D Canvas Canvas container */
+        /* 3D Canvas container */
         #viewport { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
 
         /* UI Overlays */
         .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
         .interactive { pointer-events: auto; }
 
-        /* Header Bar: Daily Streaks & Currency */
+        /* Header Bar: Streaks, Level Progression & Inventory */
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 20, 40, 0.75); backdrop-filter: blur(10px); padding: 12px 24px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); }
         .streak-badge { display: flex; align-items: center; gap: 8px; color: #ffb703; font-weight: bold; }
+        
+        .level-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .level-badge { background: linear-gradient(135deg, #4cc9f0, #4361ee); padding: 4px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; box-shadow: 0 0 10px rgba(76, 201, 240, 0.5); }
+        .level-title { font-size: 12px; color: #00ffcc; font-weight: 600; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
+
         .inventory-count { display: flex; gap: 15px; font-size: 14px; }
         .inv-item { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; }
 
@@ -29,17 +36,19 @@
         .action-sidebar { position: absolute; right: 20px; top: 100px; display: flex; flex-direction: column; gap: 12px; }
         .action-btn { background: linear-gradient(135deg, #3a0ca3, #4361ee); color: white; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s; display: flex; align-items: center; gap: 10px; }
         .action-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, #4361ee, #4cc9f0); }
-        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .action-btn.level-up-btn { background: linear-gradient(135deg, #ffb703, #fb8500); color: #000; }
+        .action-btn.level-up-btn:hover { background: linear-gradient(135deg, #ffc300, #ffb703); }
 
         /* Bottom Snail Selection Carousel */
         .snail-carousel { background: rgba(15, 20, 40, 0.85); backdrop-filter: blur(10px); padding: 15px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); width: 100%; max-width: 800px; margin: 0 auto; display: flex; gap: 15px; overflow-x: auto; scrollbar-width: thin; }
-        .snail-card { min-width: 90px; height: 90px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .snail-card { min-width: 110px; height: 95px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: white; }
         .snail-card.active { border-color: #4cc9f0; background: rgba(76, 201, 240, 0.2); transform: scale(1.05); }
-        .snail-card.locked { opacity: 0.4; filter: grayscale(1); }
-        .snail-card img { width: 40px; height: 40px; margin-bottom: 5px; }
-        .snail-card span { font-size: 11px; text-align: center; }
+        .snail-card.locked { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
+        .snail-card .icon { font-size: 22px; }
+        .snail-card span { font-size: 11px; text-align: center; margin-top: 4px; }
+        .snail-card .lvl-tag { font-size: 10px; color: #ffb703; font-weight: bold; }
 
-        /* Back to Main Menu Button */
+        /* Back Button */
         .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 14px; }
     </style>
 </head>
@@ -54,18 +63,25 @@
             <div class="streak-badge">
                 🔥 <span id="streak-text">0 Day Streak</span>
             </div>
+            
+            <!-- Current Level Status -->
+            <div class="level-box">
+                <div class="level-badge">Level <span id="current-level-display">1</span></div>
+                <div class="level-title"><span id="snail-name-title">Baby Galactic Snail</span></div>
+            </div>
+
             <div class="inventory-count">
-                <div class="inv-item">🍃 Food: <span id="food-count">0</span></div>
-                <div class="inv-item">💧 Water: <span id="water-count">0</span></div>
+                <div class="inv-item">🍃 Food: <span id="food-count">10</span></div>
+                <div class="inv-item">💧 Water: <span id="water-count">5</span></div>
             </div>
         </div>
 
         <!-- Action Buttons (Right Side) -->
         <div class="action-sidebar interactive">
+            <button class="action-btn level-up-btn" id="btn-complete-lvl">⭐ Complete Level</button>
             <button class="action-btn" id="btn-sing">🎵 Listen to Snail</button>
             <button class="action-btn" id="btn-feed">🍃 Feed Plant</button>
             <button class="action-btn" id="btn-water">🌧️ Water Nursery</button>
-            <button class="action-btn" id="btn-decorate">🎩 Decorate Snail</button>
         </div>
 
         <!-- Bottom Carousel -->
@@ -81,8 +97,8 @@
         scene.fog = new THREE.FogExp2(0x0b0d19, 0.03);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 3, 12); // Moved back from 8 to 12
-camera.lookAt(0, -0.5, 0);      // Shifted focus lower on the screen
+        camera.position.set(0, 3, 12);
+        camera.lookAt(0, -0.5, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -90,70 +106,169 @@ camera.lookAt(0, -0.5, 0);      // Shifted focus lower on the screen
         renderer.shadowMap.enabled = true;
         container.appendChild(renderer.domElement);
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const gltfLoader = new THREE.GLTFLoader();
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
 
         const plantGlowLight = new THREE.PointLight(0x4cc9f0, 2, 10);
         plantGlowLight.position.set(0, 1, 0);
         scene.add(plantGlowLight);
 
-        // --- COSMIC NURSERY PLANT (Placeholder Mesh) ---
+        function alignModelToGround(model) {
+            const box = new THREE.Box3().setFromObject(model);
+            model.position.y -= box.min.y;
+        }
+
+        // --- COSMIC NURSERY PLANT MODEL ---
         const plantGroup = new THREE.Group();
-plantGroup.position.y = -2; // Shifted plant down from Y: 0 to Y: -2
+        plantGroup.position.y = -2;
+        scene.add(plantGroup);
 
-        // Base / Stem
-        const stemGeo = new THREE.CylinderGeometry(0.2, 0.5, 2, 16);
-        const stemMat = new THREE.MeshStandardMaterial({ color: 0x2a9d8f, roughness: 0.3 });
-        const stem = new THREE.Mesh(stemGeo, stemMat);
-        stem.position.y = 1;
-        plantGroup.add(stem);
-
-        // Glowing Leaf Platform for Snails
-        const leafGeo = new THREE.CylinderGeometry(1.5, 1.2, 0.2, 32);
+        const leafGeo = new THREE.CylinderGeometry(1.8, 1.5, 0.2, 32);
         const leafMat = new THREE.MeshStandardMaterial({ color: 0x48cae4, emissive: 0x0077b6, emissiveIntensity: 0.2 });
         const leaf = new THREE.Mesh(leafGeo, leafMat);
         leaf.position.y = 2;
         plantGroup.add(leaf);
 
-        scene.add(plantGroup);
+        gltfLoader.load('Meshy_AI_Cosmic Vortex Gate_1786036249_texture_converted.glb', function (gltf) {
+            const baseModel = gltf.scene;
+            baseModel.scale.set(1.2, 1.2, 1.2);
+            alignModelToGround(baseModel);
+            plantGroup.add(baseModel);
+        });
 
-        // --- ACTIVE 3D SNAIL PLACEHOLDER ---
+        // --- SNAIL LEVEL EVOLUTION SYSTEM ---
         const snailGroup = new THREE.Group();
-// Move snail position down so it rests on top of the lowered plant leaf
-snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf surface
-        const shellGeo = new THREE.SphereGeometry(0.5, -2, 32);
-        const shellMat = new THREE.MeshStandardMaterial({ color: 0xffb703 });
-        const shell = new THREE.Mesh(shellGeo, shellMat);
-        shell.position.set(0, 1, 0);
-        snailGroup.add(shell);
-
+        snailGroup.position.set(0, 0, 0);
         scene.add(snailGroup);
 
-        // --- LOCALIZED RAIN PARTICLES ---
+        let activeSnailMesh = null;
+        let playerLevel = 1; // Current level achieved
+
+        // Each completed level maps to a specific 3D snail evolution tier!
+        const levelSnailTiers = [
+            { 
+                levelRequired: 1, 
+                name: 'Baby Galactic Snail', 
+                icon: '🐌', 
+                model: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', 
+                scale: 0.35 
+            },
+            { 
+                levelRequired: 2, 
+                name: 'Astral Knight Snail', 
+                icon: '🐚', 
+                model: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', 
+                scale: 0.5 
+            }
+        ];
+
+        function loadSnailModel(tierData) {
+            if (activeSnailMesh) {
+                snailGroup.remove(activeSnailMesh);
+            }
+
+            gltfLoader.load(tierData.model, function (gltf) {
+                activeSnailMesh = gltf.scene;
+                activeSnailMesh.scale.set(tierData.scale, tierData.scale, tierData.scale);
+                alignModelToGround(activeSnailMesh);
+                snailGroup.add(activeSnailMesh);
+            });
+
+            // Update UI
+            document.getElementById('current-level-display').innerText = playerLevel;
+            document.getElementById('snail-name-title').innerText = tierData.name;
+        }
+
+        // Called when player completes a level
+        function completeLevel() {
+            if (playerLevel < levelSnailTiers.length) {
+                playerLevel++;
+                
+                // Flash glow effect & hop
+                plantGlowLight.color.setHex(0x00ffcc);
+                plantGlowLight.intensity = 5.0;
+                
+                let hops = 0;
+                const interval = setInterval(() => {
+                    snailGroup.position.y = (hops % 2 === 0) ? 0.5 : 0;
+                    hops++;
+                    if (hops > 8) { 
+                        clearInterval(interval); 
+                        snailGroup.position.y = 0;
+                        plantGlowLight.color.setHex(0x4cc9f0);
+                        plantGlowLight.intensity = 2.0;
+                    }
+                }, 150);
+
+                // Evolve active model to match newly unlocked level tier
+                const currentTier = levelSnailTiers[playerLevel - 1];
+                loadSnailModel(currentTier);
+                renderCarousel();
+            } else {
+                alert("Max Snail Evolution Tier Reached!");
+            }
+        }
+
+        // --- CAROUSEL RENDER ---
+        function renderCarousel() {
+            const carousel = document.getElementById('snail-list');
+            carousel.innerHTML = '';
+            levelSnailTiers.forEach((tier) => {
+                const isUnlocked = playerLevel >= tier.levelRequired;
+                const isCurrent = playerLevel === tier.levelRequired;
+
+                const card = document.createElement('div');
+                card.className = `snail-card ${isCurrent ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}`;
+                card.innerHTML = `
+                    <div class="icon">${tier.icon}</div>
+                    <div class="lvl-tag">Level ${tier.levelRequired}</div>
+                    <span>${tier.name}</span>
+                `;
+
+                if (isUnlocked) {
+                    card.addEventListener('click', () => {
+                        document.querySelectorAll('.snail-card').forEach(c => c.classList.remove('active'));
+                        card.classList.add('active');
+                        loadSnailModel(tier);
+                    });
+                }
+
+                carousel.appendChild(card);
+            });
+        }
+
+        // Initial Setup
+        renderCarousel();
+        loadSnailModel(levelSnailTiers[0]);
+
+        // --- RAIN SYSTEM ---
         const rainCount = 200;
         const rainGeo = new THREE.BufferGeometry();
         const rainPositions = new Float32Array(rainCount * 3);
 
         for(let i = 0; i < rainCount * 3; i += 3) {
-            rainPositions[i] = (Math.random() - 0.5) * 3; // X
-            rainPositions[i+1] = Math.random() * 4 + 2;   // Y
-            rainPositions[i+2] = (Math.random() - 0.5) * 3; // Z
+            rainPositions[i] = (Math.random() - 0.5) * 3;
+            rainPositions[i+1] = Math.random() * 4 + 2;
+            rainPositions[i+2] = (Math.random() - 0.5) * 3;
         }
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
         const rainMat = new THREE.PointsMaterial({ color: 0x4cc9f0, size: 0.05, transparent: true, opacity: 0 });
         const rainSystem = new THREE.Points(rainGeo, rainMat);
         scene.add(rainSystem);
 
-        // Animation Loop
         let isRaining = false;
         function animate() {
             requestAnimationFrame(animate);
 
-            // Gentle Plant Float / Bobbing
             plantGroup.rotation.y += 0.005;
 
-            // Rain Animation Logic
             if(isRaining) {
                 const positions = rainSystem.geometry.attributes.position.array;
                 for(let i = 1; i < rainCount * 3; i += 3) {
@@ -167,7 +282,6 @@ snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf
         }
         animate();
 
-        // Window Resize Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -175,8 +289,9 @@ snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf
         });
 
         // --- INTERACTION HANDLERS ---
+        document.getElementById('btn-complete-lvl').addEventListener('click', completeLevel);
+
         document.getElementById('btn-feed').addEventListener('click', () => {
-            // Pulse leaf emissive glow
             leafMat.emissiveIntensity = 1.0;
             setTimeout(() => leafMat.emissiveIntensity = 0.2, 1000);
         });
@@ -191,10 +306,9 @@ snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf
         });
 
         document.getElementById('btn-sing').addEventListener('click', () => {
-            // Gentle hop animation when singing
             let hops = 0;
             const interval = setInterval(() => {
-                snailGroup.position.y = (hops % 2 === 0) ? 0.2 : 0;
+                snailGroup.position.y = (hops % 2 === 0) ? 0.3 : 0;
                 hops++;
                 if(hops > 6) { clearInterval(interval); snailGroup.position.y = 0; }
             }, 200);
@@ -202,4 +316,3 @@ snailGroup.position.set(0, 0, 0); // Aligns perfectly on top of the shifted leaf
     </script>
 </body>
 </html>
-
