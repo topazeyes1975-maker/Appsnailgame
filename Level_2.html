@@ -150,6 +150,7 @@
             box-shadow: 0 0 10px rgba(0, 255, 204, 0.8);
             pointer-events: none;
             transform: translate(0px, 0px);
+            will-change: transform;
         }
 
         #game-over-modal {
@@ -243,13 +244,15 @@
 
         const MAZE_SIZE = 11;
         const CELL_SIZE = 4;
-        const SPEED = 0.18;
-        const GUARD_SPEED = 0.08;
-        const ROT_SPEED = 0.06;
+        
+        // Units Per Second speeds for delta timing
+        const SPEED = 10.0;
+        const GUARD_SPEED = 4.5;
+        const ROT_SPEED = 3.2;
 
-        let scene, camera, renderer;
+        let scene, camera, renderer, clock;
         let snailGroup, bellGroup, homeBaseGroup;
-        let bellVelocity = { x: 0.05, z: 0.05 };
+        let bellVelocity = { x: 3.0, z: 3.0 };
         let isFrozen = false, freezeTimer = 0;
         let homeCount = 0;
         const TOTAL_BABIES = 3;
@@ -288,6 +291,8 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a1a);
             scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
+
+            clock = new THREE.Clock();
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -545,7 +550,8 @@
                 joystickVector.x = deltaX / maxRadius;
                 joystickVector.y = deltaY / maxRadius;
             }
-function handleEnd() {
+
+            function handleEnd() {
                 stick.style.transform = `translate(0px, 0px)`;
                 joystickVector.x = 0;
                 joystickVector.y = 0;
@@ -557,7 +563,7 @@ function handleEnd() {
                 const touch = e.changedTouches[0];
                 activeTouchId = touch.identifier;
                 handleMove(touch.clientX, touch.clientY);
-            });
+            }, { passive: false });
 
             zone.addEventListener('touchmove', (e) => {
                 e.preventDefault();
@@ -566,7 +572,7 @@ function handleEnd() {
                         handleMove(touch.clientX, touch.clientY);
                     }
                 }
-            });
+            }, { passive: false });
 
             zone.addEventListener('touchend', handleEnd);
             zone.addEventListener('touchcancel', handleEnd);
@@ -719,10 +725,11 @@ function handleEnd() {
             if (isGameOver) return;
             requestAnimationFrame(animate);
 
+            const delta = Math.min(clock.getDelta(), 0.1); // Cap delta to prevent huge jumps on tab switch
             const now = Date.now();
 
             if (isFrozen) {
-                freezeTimer -= 16;
+                freezeTimer -= delta * 1000;
                 if (freezeTimer <= 0) {
                     isFrozen = false;
                     document.getElementById('status-msg').style.display = 'none';
@@ -738,12 +745,19 @@ function handleEnd() {
                 if (keys.w) inputY += 1.0;
                 if (keys.s) inputY -= 1.0;
 
-                if (Math.abs(inputX) > 0.1) {
-                    snailGroup.rotation.y -= inputX * ROT_SPEED;
+                // Normalize length if combined input exceeds 1.0
+                const inputLen = Math.hypot(inputX, inputY);
+                if (inputLen > 1.0) {
+                    inputX /= inputLen;
+                    inputY /= inputLen;
                 }
 
-                if (Math.abs(inputY) > 0.1) {
-                    const moveDistance = inputY * SPEED;
+                if (Math.abs(inputX) > 0.05) {
+                    snailGroup.rotation.y -= inputX * ROT_SPEED * delta;
+                }
+
+                if (Math.abs(inputY) > 0.05) {
+                    const moveDistance = inputY * SPEED * delta;
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
                     const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
 
@@ -753,9 +767,9 @@ function handleEnd() {
             }
 
             if (bellGroup) {
-                bellGroup.rotation.y += 0.02;
-                const nextBellX = bellGroup.position.x + bellVelocity.x;
-                const nextBellZ = bellGroup.position.z + bellVelocity.z;
+                bellGroup.rotation.y += 1.2 * delta;
+                const nextBellX = bellGroup.position.x + bellVelocity.x * delta;
+                const nextBellZ = bellGroup.position.z + bellVelocity.z * delta;
 
                 if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
                 else bellGroup.position.x = nextBellX;
@@ -778,8 +792,8 @@ function handleEnd() {
 
                     if (distToPlayer > 0.1) {
                         tempGuardVector.normalize();
-                        const nextX = guard.mesh.position.x + tempGuardVector.x * GUARD_SPEED;
-                        const nextZ = guard.mesh.position.z + tempGuardVector.z * GUARD_SPEED;
+                        const nextX = guard.mesh.position.x + tempGuardVector.x * GUARD_SPEED * delta;
+                        const nextZ = guard.mesh.position.z + tempGuardVector.z * GUARD_SPEED * delta;
 
                         if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) {
                             guard.mesh.position.x = nextX;
@@ -805,8 +819,8 @@ function handleEnd() {
             // Projectile Motion & Multi-Hitbox (Player + Baby Trail) Collision
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
-                proj.mesh.position.addScaledVector(proj.dir, 0.3);
-                proj.life--;
+                proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
+                proj.life -= delta * 60;
 
                 if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) {
                     scene.remove(proj.mesh);
@@ -816,12 +830,10 @@ function handleEnd() {
 
                 let hitDetected = false;
 
-                // Check hit against player head
                 if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.8) {
                     hitDetected = true;
                 }
 
-                // Check hit against any trailing baby snail body in the chain
                 if (!hitDetected) {
                     babies.forEach(baby => {
                         if (baby.following && !baby.returnedHome) {
@@ -856,7 +868,7 @@ function handleEnd() {
             babies.forEach(baby => {
                 if (baby.returnedHome) return;
 
-                baby.mesh.rotation.y += 0.02;
+                baby.mesh.rotation.y += 1.2 * delta;
 
                 if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
                     baby.following = true;
@@ -869,8 +881,9 @@ function handleEnd() {
                     const targetX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * targetDistance;
                     const targetZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * targetDistance;
 
-                    baby.mesh.position.x += (targetX - baby.mesh.position.x) * 0.1;
-                    baby.mesh.position.z += (targetZ - baby.mesh.position.z) * 0.1;
+                    const followSpeed = 6.0 * delta;
+                    baby.mesh.position.x += (targetX - baby.mesh.position.x) * followSpeed;
+                    baby.mesh.position.z += (targetZ - baby.mesh.position.z) * followSpeed;
 
                     const distToBase = baby.mesh.position.distanceTo(homeBaseGroup.position);
                     if (distToBase < 1.8) {
@@ -933,4 +946,3 @@ function handleEnd() {
     </script>
 </body>
 </html>
-            
