@@ -319,6 +319,10 @@
             }
         }, 1000);
 
+        // Force window focus on desktop
+        window.focus();
+        window.addEventListener('click', () => { window.focus(); });
+
         // KEYBOARD CONTROLS
         const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
@@ -469,7 +473,7 @@
                 document.getElementById('player-status').innerText = "Active";
                 document.getElementById('player-status').style.color = "#00ffcc";
 
-                // Calculate Keyboard Input
+                // Keyboard Input Check
                 let keyX = 0;
                 let keyZ = 0;
 
@@ -478,14 +482,15 @@
                 if (keys.KeyS || keys.ArrowDown) keyZ += 1;
                 if (keys.KeyW || keys.ArrowUp) keyZ -= 1;
 
-                // Combine Keyboard + Mobile Touch inputs
-                let finalMoveX = moveX !== 0 ? moveX : keyX;
-                let finalMoveZ = moveZ !== 0 ? moveZ : keyZ;
-
-                if (keyX !== 0 && keyZ !== 0 && moveX === 0 && moveZ === 0) {
-                    finalMoveX *= 0.7071;
-                    finalMoveZ *= 0.7071;
+                // Normalize diagonal movement for keyboard
+                if (keyX !== 0 && keyZ !== 0) {
+                    keyX *= 0.7071;
+                    keyZ *= 0.7071;
                 }
+
+                // Favor keyboard input if pressed, otherwise fallback to touch joystick
+                let finalMoveX = (keyX !== 0) ? keyX : moveX;
+                let finalMoveZ = (keyZ !== 0) ? keyZ : moveZ;
 
                 let nextX = snailGroup.position.x + (finalMoveX * 0.12);
                 let nextZ = snailGroup.position.z + (finalMoveZ * 0.12);
@@ -498,7 +503,7 @@
                 }
             }
 
-               // Move Enemies & Shoot
+            // Move Enemies & Shoot
             enemies.forEach(en => {
                 let nextEnX = en.mesh.position.x + en.speedX;
                 let nextEnZ = en.mesh.position.z + en.speedZ;
