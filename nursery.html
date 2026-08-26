@@ -91,6 +91,11 @@
     </div>
 
     <script>
+        // --- SUPABASE SETUP ---
+        const supabaseUrl = 'https://jhgcyiswxubqzqtbhain.supabase.co'; 
+        const supabaseKey = 'sb_publishable_0j0PaDVT_pXMJawcf2W8fQ_Lz9B4KoW';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
         // --- THREE.JS SCENE SETUP ---
         const container = document.getElementById('viewport');
         const scene = new THREE.Scene();
@@ -149,7 +154,7 @@
         scene.add(snailGroup);
 
         let activeSnailMesh = null;
-        let playerLevel = 1; // Current level achieved
+        let playerLevel = 1; // Default level
 
         // Each completed level maps to a specific 3D snail evolution tier!
         const levelSnailTiers = [
@@ -186,6 +191,46 @@
             document.getElementById('snail-name-title').innerText = tierData.name;
         }
 
+        // --- SUPABASE SAVE & LOAD ---
+        async function loadUserProgress() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data, error } = await supabase
+                        .from('user_nursery')
+                        .select('current_level')
+                        .eq('user_id', user.id)
+                        .single();
+
+                    if (data && data.current_level) {
+                        playerLevel = data.current_level;
+                        const currentTier = levelSnailTiers[Math.min(playerLevel - 1, levelSnailTiers.length - 1)];
+                        loadSnailModel(currentTier);
+                        renderCarousel();
+                    }
+                }
+            } catch (err) {
+                console.log("Loading progress offline or non-authenticated session:", err);
+            }
+        }
+
+        async function saveUserProgress(newLevel) {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase
+                        .from('user_nursery')
+                        .upsert({ 
+                            user_id: user.id, 
+                            current_level: newLevel,
+                            updated_at: new Date()
+                        });
+                }
+            } catch (err) {
+                console.log("Could not save to Supabase:", err);
+            }
+        }
+
         // Called when player completes a level
         function completeLevel() {
             if (playerLevel < levelSnailTiers.length) {
@@ -211,6 +256,9 @@
                 const currentTier = levelSnailTiers[playerLevel - 1];
                 loadSnailModel(currentTier);
                 renderCarousel();
+
+                // Save to Supabase
+                saveUserProgress(playerLevel);
             } else {
                 alert("Max Snail Evolution Tier Reached!");
             }
@@ -247,6 +295,7 @@
         // Initial Setup
         renderCarousel();
         loadSnailModel(levelSnailTiers[0]);
+        loadUserProgress();
 
         // --- RAIN SYSTEM ---
         const rainCount = 200;
