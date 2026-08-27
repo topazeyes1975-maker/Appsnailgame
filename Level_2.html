@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 2</title>
+    <title>Snail Rescue - Level 2 (D-Pad Controls)</title>
     <style>
         body {
             margin: 0;
@@ -123,35 +123,45 @@
             color: #ff007f;
         }
 
-        #joystick-zone {
+        /* NEW D-PAD CONTROLLER UI */
+        #dpad-zone {
             position: absolute;
-            bottom: 60px;
-            left: 55px;
-            width: 130px;
-            height: 130px;
-            background: rgba(0, 255, 204, 0.08);
-            border: 2px solid rgba(0, 255, 204, 0.4);
-            border-radius: 50%;
-            touch-action: none;
+            bottom: 30px;
+            left: 30px;
+            width: 140px;
+            height: 140px;
             pointer-events: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 4px;
+        }
+
+        .dbtn {
+            background: rgba(0, 255, 204, 0.15);
+            border: 2px solid #00ffcc;
+            border-radius: 8px;
+            color: #00ffcc;
+            font-size: 20px;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.15);
+            user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
         }
 
-        #joystick-stick {
-            width: 50px;
-            height: 50px;
-            background: rgba(0, 255, 204, 0.5);
-            border: 2px solid #00ffcc;
-            border-radius: 50%;
-            position: absolute;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.8);
-            pointer-events: none;
-            transform: translate(0px, 0px);
-            will-change: transform;
+        .dbtn:active, .dbtn.active {
+            background: rgba(0, 255, 204, 0.6);
+            color: #050510;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.8);
         }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
 
         #game-over-modal {
             position: absolute;
@@ -219,8 +229,11 @@
             </div>
         </div>
 
-        <div id="joystick-zone">
-            <div id="joystick-stick"></div>
+        <div id="dpad-zone">
+            <div id="btn-up" class="dbtn">▲</div>
+            <div id="btn-left" class="dbtn">◀</div>
+            <div id="btn-right" class="dbtn">▶</div>
+            <div id="btn-down" class="dbtn">▼</div>
         </div>
     </div>
 
@@ -245,11 +258,9 @@
         const MAZE_SIZE = 11;
         const CELL_SIZE = 4;
         
-        // Tuned movement constants for fine control
         const SPEED = 8.5;
         const GUARD_SPEED = 4.0;
-        const ROT_SPEED = 2.2; 
-        const JOYSTICK_DEADZONE = 0.15; // Ignore tiny accidental touches
+        const ROT_SPEED = 2.5; 
 
         let scene, camera, renderer, clock;
         let snailGroup, bellGroup, homeBaseGroup;
@@ -260,12 +271,10 @@
         let playerHealth = 100;
         let isGameOver = false;
 
-        let joystickVector = { x: 0, y: 0 };
-        let keys = { w: false, a: false, s: false, d: false };
+        let moveFlags = { up: false, down: false, left: false, right: false };
         let babies = [], guards = [], projectiles = [], walls = [];
 
         const homeBasePos = { x: -16, z: 12 };
-
         const tempPlayerBox = new THREE.Box3();
         const tempGuardVector = new THREE.Vector3();
 
@@ -294,7 +303,6 @@
             scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
 
             clock = new THREE.Clock();
-
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -316,7 +324,7 @@
             spawnBabies();
             spawnGuards();
 
-            bindJoystick();
+            bindDPad();
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -334,13 +342,8 @@
 
         function buildMaze() {
             const floorTex = textureLoader.load(ASSETS.floorTex, 
-                (t) => { 
-                    t.wrapS = t.wrapT = THREE.RepeatWrapping; 
-                    t.repeat.set(10, 10); 
-                    t.needsUpdate = true;
-                },
-                undefined,
-                () => createFallbackTexture('#0f0f2d', '#1a1a40')
+                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10, 10); t.needsUpdate = true; },
+                undefined, () => createFallbackTexture('#0f0f2d', '#1a1a40')
             );
 
             const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
@@ -350,21 +353,11 @@
             scene.add(floor);
 
             const wallTex = textureLoader.load(ASSETS.wallTex, 
-                (t) => {
-                    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-                    t.repeat.set(1, 1);
-                    t.needsUpdate = true;
-                },
-                undefined,
-                () => createFallbackTexture('#1a233a', '#223355')
+                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1); t.needsUpdate = true; },
+                undefined, () => createFallbackTexture('#1a233a', '#223355')
             );
 
-            const wallMat = new THREE.MeshStandardMaterial({ 
-                map: wallTex, 
-                roughness: 0.4,
-                metalness: 0.1
-            });
-
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
 
@@ -401,16 +394,7 @@
                     new THREE.MeshStandardMaterial({ color: 0x003344, emissive: 0x00ffff, roughness: 0.2 })
                 );
                 padMesh.position.y = 0.05;
-
-                const ringMesh = new THREE.Mesh(
-                    new THREE.TorusGeometry(1.6, 0.08, 8, 32),
-                    new THREE.MeshBasicMaterial({ color: 0x00ffcc })
-                );
-                ringMesh.rotation.x = Math.PI / 2;
-                ringMesh.position.y = 0.1;
-
                 homeBaseGroup.add(padMesh);
-                homeBaseGroup.add(ringMesh);
             });
         }
 
@@ -477,17 +461,7 @@
                         new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 })
                     );
                     shell.position.set(0, 0.35, -0.1);
-                    
-                    const head = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.2, 10, 10),
-                        new THREE.MeshStandardMaterial({ color: 0xff007f })
-                    );
-                    head.position.set(0, 0.2, 0.3);
-
-                    const customBaby = new THREE.Group();
-                    customBaby.add(shell);
-                    customBaby.add(head);
-                    babyGroup.add(customBaby);
+                    babyGroup.add(shell);
                 });
 
                 babies.push({ id: idx, mesh: babyGroup, following: false, returnedHome: false });
@@ -495,11 +469,7 @@
         }
 
         function spawnGuards() {
-            const positions = [
-                { x: 0, z: -8 },
-                { x: 8, z: 0 }
-            ];
-
+            const positions = [{ x: 0, z: -8 }, { x: 8, z: 0 }];
             positions.forEach(pos => {
                 const guardGroup = new THREE.Group();
                 guardGroup.position.set(pos.x, 0.5, pos.z);
@@ -520,95 +490,54 @@
                     guardGroup.add(mesh);
                 });
 
-                guards.push({
-                    mesh: guardGroup,
-                    lastShot: 0
-                });
+                guards.push({ mesh: guardGroup, lastShot: 0 });
             });
         }
 
-        function bindJoystick() {
-            const zone = document.getElementById('joystick-zone');
-            const stick = document.getElementById('joystick-stick');
-            const maxRadius = 40;
-            let activeTouchId = null;
+        function bindDPad() {
+            const btnMap = {
+                'btn-up': 'up',
+                'btn-down': 'down',
+                'btn-left': 'left',
+                'btn-right': 'right'
+            };
 
-            function handleMove(clientX, clientY) {
-                const rect = zone.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
+            Object.keys(btnMap).forEach(id => {
+                const btn = document.getElementById(id);
+                const key = btnMap[id];
 
-                let deltaX = clientX - centerX;
-                let deltaY = clientY - centerY;
-                const dist = Math.hypot(deltaX, deltaY);
+                const startAction = (e) => {
+                    e.preventDefault();
+                    moveFlags[key] = true;
+                    btn.classList.add('active');
+                };
 
-                if (dist > maxRadius) {
-                    deltaX = (deltaX / dist) * maxRadius;
-                    deltaY = (deltaY / dist) * maxRadius;
-                }
+                const stopAction = (e) => {
+                    e.preventDefault();
+                    moveFlags[key] = false;
+                    btn.classList.remove('active');
+                };
 
-                stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                
-                // Normalized values between -1 and 1
-                let rawX = deltaX / maxRadius;
-                let rawY = deltaY / maxRadius;
+                btn.addEventListener('touchstart', startAction, { passive: false });
+                btn.addEventListener('touchend', stopAction, { passive: false });
+                btn.addEventListener('touchcancel', stopAction, { passive: false });
 
-                // Deadzone application
-                joystickVector.x = Math.abs(rawX) < JOYSTICK_DEADZONE ? 0 : rawX;
-                joystickVector.y = Math.abs(rawY) < JOYSTICK_DEADZONE ? 0 : rawY;
-            }
-
-            function handleEnd() {
-                stick.style.transform = `translate(0px, 0px)`;
-                joystickVector.x = 0;
-                joystickVector.y = 0;
-                activeTouchId = null;
-            }
-zone.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                const touch = e.changedTouches[0];
-                activeTouchId = touch.identifier;
-                handleMove(touch.clientX, touch.clientY);
-            }, { passive: false });
-
-            zone.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                for (let touch of e.changedTouches) {
-                    if (touch.identifier === activeTouchId) {
-                        handleMove(touch.clientX, touch.clientY);
-                    }
-                }
-            }, { passive: false });
-
-            zone.addEventListener('touchend', handleEnd);
-            zone.addEventListener('touchcancel', handleEnd);
-
-            let isMouseDown = false;
-            zone.addEventListener('mousedown', (e) => {
-                isMouseDown = true;
-                handleMove(e.clientX, e.clientY);
-            });
-            window.addEventListener('mousemove', (e) => {
-                if (isMouseDown) handleMove(e.clientX, e.clientY);
-            });
-            window.addEventListener('mouseup', () => {
-                if (isMouseDown) {
-                    isMouseDown = false;
-                    handleEnd();
-                }
+                btn.addEventListener('mousedown', startAction);
+                btn.addEventListener('mouseup', stopAction);
+                btn.addEventListener('mouseleave', stopAction);
             });
 
             window.addEventListener('keydown', e => {
-                if (['w','ArrowUp'].includes(e.key)) keys.w = true;
-                if (['s','ArrowDown'].includes(e.key)) keys.s = true;
-                if (['a','ArrowLeft'].includes(e.key)) keys.a = true;
-                if (['d','ArrowRight'].includes(e.key)) keys.d = true;
+                if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
+                if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
+                if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
+                if (['d','ArrowRight'].includes(e.key)) moveFlags.right = true;
             });
             window.addEventListener('keyup', e => {
-                if (['w','ArrowUp'].includes(e.key)) keys.w = false;
-                if (['s','ArrowDown'].includes(e.key)) keys.s = false;
-                if (['a','ArrowLeft'].includes(e.key)) keys.a = false;
-                if (['d','ArrowRight'].includes(e.key)) keys.d = false;
+                if (['w','ArrowUp'].includes(e.key)) moveFlags.up = false;
+                if (['s','ArrowDown'].includes(e.key)) moveFlags.down = false;
+                if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = false;
+                if (['d','ArrowRight'].includes(e.key)) moveFlags.right = false;
             });
         }
 
@@ -622,10 +551,7 @@ zone.addEventListener('touchstart', (e) => {
             laserMesh.position.set(guardPos.x, 0.8, guardPos.z);
             scene.add(laserMesh);
 
-            const dir = new THREE.Vector3()
-                .subVectors(snailGroup.position, guardPos)
-                .normalize();
-
+            const dir = new THREE.Vector3().subVectors(snailGroup.position, guardPos).normalize();
             projectiles.push({ mesh: laserMesh, dir: dir, life: 120 });
         }
 
@@ -637,9 +563,7 @@ zone.addEventListener('touchstart', (e) => {
             if (playerHealth < 30) fill.style.backgroundColor = '#ff0055';
             else if (playerHealth < 60) fill.style.backgroundColor = '#ffea00';
 
-            if (playerHealth <= 0) {
-                endGame(false, "HEALTH DEPLETED!");
-            }
+            if (playerHealth <= 0) endGame(false, "HEALTH DEPLETED!");
         }
 
         function checkWallCollision(newPos, radius = 0.4) {
@@ -659,9 +583,7 @@ zone.addEventListener('touchstart', (e) => {
 
             const currentMazeSize = mazeGrid.length; 
             const mapScale = 80 / (currentMazeSize * CELL_SIZE); 
-                
-            const centerX = 50;
-            const centerY = 50;
+            const centerX = 50, centerY = 50;
 
             ctx.fillStyle = '#112233';
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
@@ -743,29 +665,21 @@ zone.addEventListener('touchstart', (e) => {
             }
 
             if (!isFrozen && snailGroup) {
-                let inputX = joystickVector.x;
-                let inputY = -joystickVector.y;
-
-                if (keys.a) inputX -= 1.0;
-                if (keys.d) inputX += 1.0;
-                if (keys.w) inputY += 1.0;
-                if (keys.s) inputY -= 1.0;
-
-                // Lock horizontal turn if pushing mostly straight forward to stop unintended side-to-side drift
-                if (Math.abs(inputY) > 0.65 && Math.abs(inputX) < 0.45) {
-                    inputX = 0;
+                // Steering (Rotate Left / Right)
+                if (moveFlags.left) {
+                    snailGroup.rotation.y += ROT_SPEED * delta;
+                }
+                if (moveFlags.right) {
+                    snailGroup.rotation.y -= ROT_SPEED * delta;
                 }
 
-                // Smooth exponential turning curve (reduces erratic jittering)
-                if (Math.abs(inputX) > 0) {
-                    const turnSign = Math.sign(inputX);
-                    const turnMagnitude = Math.pow(Math.abs(inputX), 1.8);
-                    snailGroup.rotation.y -= turnSign * turnMagnitude * ROT_SPEED * delta;
-                }
+                // Throttle (Move Forward / Backward strictly along heading)
+                let moveDir = 0;
+                if (moveFlags.up) moveDir += 1;
+                if (moveFlags.down) moveDir -= 1;
 
-                // Smooth straight-line forward & backward translation
-                if (Math.abs(inputY) > 0) {
-                    const moveDistance = inputY * SPEED * delta;
+                if (moveDir !== 0) {
+                    const moveDistance = moveDir * SPEED * delta;
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
                     const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
 
@@ -803,12 +717,8 @@ zone.addEventListener('touchstart', (e) => {
                         const nextX = guard.mesh.position.x + tempGuardVector.x * GUARD_SPEED * delta;
                         const nextZ = guard.mesh.position.z + tempGuardVector.z * GUARD_SPEED * delta;
 
-                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) {
-                            guard.mesh.position.x = nextX;
-                        }
-                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.5)) {
-                            guard.mesh.position.z = nextZ;
-                        }
+                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) guard.mesh.position.x = nextX;
+                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.5)) guard.mesh.position.z = nextZ;
 
                         guard.mesh.rotation.y = Math.atan2(tempGuardVector.x, tempGuardVector.z);
                     }
@@ -836,17 +746,12 @@ zone.addEventListener('touchstart', (e) => {
                 }
 
                 let hitDetected = false;
-
-                if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.8) {
-                    hitDetected = true;
-                }
+                if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.8) hitDetected = true;
 
                 if (!hitDetected) {
                     babies.forEach(baby => {
                         if (baby.following && !baby.returnedHome) {
-                            if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.6) {
-                                hitDetected = true;
-                            }
+                            if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.6) hitDetected = true;
                         }
                     });
                 }
@@ -874,7 +779,6 @@ zone.addEventListener('touchstart', (e) => {
 
             babies.forEach(baby => {
                 if (baby.returnedHome) return;
-
                 baby.mesh.rotation.y += 1.2 * delta;
 
                 if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.5) {
@@ -900,9 +804,7 @@ zone.addEventListener('touchstart', (e) => {
                         homeCount++;
                         document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`;
 
-                        if (homeCount === TOTAL_BABIES) {
-                            endGame(true);
-                        }
+                        if (homeCount === TOTAL_BABIES) endGame(true);
                     }
                 }
             });
@@ -953,4 +855,3 @@ zone.addEventListener('touchstart', (e) => {
     </script>
 </body>
 </html>
-            
