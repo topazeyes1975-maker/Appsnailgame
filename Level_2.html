@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 2 (Large D-Pad)</title>
+    <title>Snail Rescue - Level 2 (Continuous Patrol)</title>
     <style>
         body {
             margin: 0;
@@ -123,7 +123,7 @@
             color: #ff007f;
         }
 
-        /* ENLARGED & RE-POSITIONED D-PAD */
+        /* LARGE & MOVEABLE D-PAD */
         #dpad-zone {
             position: absolute;
             bottom: 60px;
@@ -259,7 +259,7 @@
         const CELL_SIZE = 4;
         
         const SPEED = 8.5;
-        const GUARD_SPEED = 4.0;
+        const GUARD_SPEED = 3.5;
         const ROT_SPEED = 2.5; 
 
         let scene, camera, renderer, clock;
@@ -276,7 +276,6 @@
 
         const homeBasePos = { x: -16, z: 12 };
         const tempPlayerBox = new THREE.Box3();
-        const tempGuardVector = new THREE.Vector3();
 
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
@@ -469,10 +468,22 @@
         }
 
         function spawnGuards() {
-            const positions = [{ x: 0, z: -8 }, { x: 8, z: 0 }];
-            positions.forEach(pos => {
+            // Guards now patrol along explicit non-blocking waypoint loops
+            const guardConfigs = [
+                {
+                    waypoints: [{ x: 0, z: -8 }, { x: 12, z: -8 }],
+                    startIdx: 0
+                },
+                {
+                    waypoints: [{ x: 8, z: -12 }, { x: 8, z: 12 }],
+                    startIdx: 0
+                }
+            ];
+
+            guardConfigs.forEach(cfg => {
                 const guardGroup = new THREE.Group();
-                guardGroup.position.set(pos.x, 0.5, pos.z);
+                const startPos = cfg.waypoints[cfg.startIdx];
+                guardGroup.position.set(startPos.x, 0.5, startPos.z);
                 scene.add(guardGroup);
 
                 gltfLoader.load(ASSETS.guardModel, (gltf) => {
@@ -490,7 +501,12 @@
                     guardGroup.add(mesh);
                 });
 
-                guards.push({ mesh: guardGroup, lastShot: 0 });
+                guards.push({
+                    mesh: guardGroup,
+                    waypoints: cfg.waypoints,
+                    currentWaypointIdx: cfg.startIdx,
+                    lastShot: 0
+                });
             });
         }
 
@@ -704,29 +720,30 @@
                 }
             }
 
+            // Continuous Patrol Logic
             guards.forEach(guard => {
+                const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
+                const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
+                dir.y = 0;
+                const distToWaypoint = dir.length();
+
+                if (distToWaypoint < 0.3) {
+                    guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
+                } else {
+                    dir.normalize();
+                    guard.mesh.position.x += dir.x * GUARD_SPEED * delta;
+                    guard.mesh.position.z += dir.z * GUARD_SPEED * delta;
+                    guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+                }
+
                 if (snailGroup) {
-                    tempGuardVector.subVectors(snailGroup.position, guard.mesh.position);
-                    tempGuardVector.y = 0;
-                    const distToPlayer = tempGuardVector.length();
-
-                    if (distToPlayer > 0.1) {
-                        tempGuardVector.normalize();
-                        const nextX = guard.mesh.position.x + tempGuardVector.x * GUARD_SPEED * delta;
-                        const nextZ = guard.mesh.position.z + tempGuardVector.z * GUARD_SPEED * delta;
-
-                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.5)) guard.mesh.position.x = nextX;
-                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.5)) guard.mesh.position.z = nextZ;
-
-                        guard.mesh.rotation.y = Math.atan2(tempGuardVector.x, tempGuardVector.z);
-                    }
-
-                    if (distToPlayer < 12 && (now - guard.lastShot > 1600)) {
+                    const distToPlayer = guard.mesh.position.distanceTo(snailGroup.position);
+                    if (distToPlayer < 10 && (now - guard.lastShot > 1800)) {
                         shootLaser(guard.mesh.position);
                         guard.lastShot = now;
                     }
 
-                    if (snailGroup.position.distanceTo(guard.mesh.position) < 1.2) {
+                    if (distToPlayer < 1.2) {
                         endGame(false, "GOTCHA!");
                     }
                 }
