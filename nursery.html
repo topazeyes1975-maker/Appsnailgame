@@ -18,38 +18,106 @@
         #viewport { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
 
         /* UI Overlays */
-        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
         .interactive { pointer-events: auto; }
 
         /* Header Bar: Streaks, Level Progression & Inventory */
-        .header-bar { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 20, 40, 0.75); backdrop-filter: blur(10px); padding: 12px 24px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); }
-        .streak-badge { display: flex; align-items: center; gap: 8px; color: #ffb703; font-weight: bold; }
+        .header-bar { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: space-between; 
+            align-items: center; 
+            gap: 10px;
+            background: rgba(15, 20, 40, 0.85); 
+            backdrop-filter: blur(10px); 
+            padding: 10px 16px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+        }
+        .streak-badge { display: flex; align-items: center; gap: 6px; color: #ffb703; font-weight: bold; font-size: 13px; }
         
         .level-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .level-badge { background: linear-gradient(135deg, #4cc9f0, #4361ee); padding: 4px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; box-shadow: 0 0 10px rgba(76, 201, 240, 0.5); }
-        .level-title { font-size: 12px; color: #00ffcc; font-weight: 600; text-shadow: 0 0 5px rgba(0,255,204,0.4); }
+        .level-badge { background: linear-gradient(135deg, #4cc9f0, #4361ee); padding: 3px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 0 10px rgba(76, 201, 240, 0.5); }
+        .level-title { font-size: 11px; color: #00ffcc; font-weight: 600; text-shadow: 0 0 5px rgba(0,255,204,0.4); text-align: center; }
 
-        .inventory-count { display: flex; gap: 15px; font-size: 14px; }
-        .inv-item { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; }
+        .inventory-count { display: flex; gap: 8px; font-size: 12px; }
+        .inv-item { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 16px; white-space: nowrap; }
 
         /* Action Sidebar */
-        .action-sidebar { position: absolute; right: 20px; top: 100px; display: flex; flex-direction: column; gap: 12px; }
-        .action-btn { background: linear-gradient(135deg, #3a0ca3, #4361ee); color: white; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s; display: flex; align-items: center; gap: 10px; }
+        .action-sidebar { 
+            position: absolute; 
+            right: 12px; 
+            top: 50%; 
+            transform: translateY(-50%); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            width: 150px;
+        }
+        .action-btn { 
+            background: linear-gradient(135deg, #3a0ca3, #4361ee); 
+            color: white; 
+            border: none; 
+            padding: 10px 14px; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            transition: transform 0.2s, background 0.2s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            gap: 6px; 
+            width: 100%;
+        }
         .action-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, #4361ee, #4cc9f0); }
         .action-btn.level-up-btn { background: linear-gradient(135deg, #ffb703, #fb8500); color: #000; }
         .action-btn.level-up-btn:hover { background: linear-gradient(135deg, #ffc300, #ffb703); }
 
         /* Bottom Snail Selection Carousel */
-        .snail-carousel { background: rgba(15, 20, 40, 0.85); backdrop-filter: blur(10px); padding: 15px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); width: 100%; max-width: 800px; margin: 0 auto; display: flex; gap: 15px; overflow-x: auto; scrollbar-width: thin; }
-        .snail-card { min-width: 110px; height: 95px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: white; }
-        .snail-card.active { border-color: #4cc9f0; background: rgba(76, 201, 240, 0.2); transform: scale(1.05); }
+        .snail-carousel { 
+            background: rgba(15, 20, 40, 0.85); 
+            backdrop-filter: blur(10px); 
+            padding: 10px; 
+            border-radius: 16px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            width: 100%; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            display: flex; 
+            gap: 10px; 
+            overflow-x: auto; 
+            scrollbar-width: thin; 
+        }
+        .snail-card { min-width: 100px; height: 85px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: white; padding: 4px; }
+        .snail-card.active { border-color: #4cc9f0; background: rgba(76, 201, 240, 0.2); transform: scale(1.03); }
         .snail-card.locked { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
-        .snail-card .icon { font-size: 22px; }
-        .snail-card span { font-size: 11px; text-align: center; margin-top: 4px; }
-        .snail-card .lvl-tag { font-size: 10px; color: #ffb703; font-weight: bold; }
+        .snail-card .icon { font-size: 20px; }
+        .snail-card span { font-size: 10px; text-align: center; margin-top: 2px; }
+        .snail-card .lvl-tag { font-size: 9px; color: #ffb703; font-weight: bold; }
 
         /* Back Button */
-        .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 14px; }
+        .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 12px; }
+
+        /* Mobile Screens Adjustment */
+        @media screen and (max-width: 600px) {
+            .header-bar {
+                padding: 8px 10px;
+            }
+            .action-sidebar {
+                top: auto;
+                bottom: 115px;
+                transform: none;
+                right: 12px;
+                width: 130px;
+                gap: 6px;
+            }
+            .action-btn {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -297,15 +365,15 @@
         loadSnailModel(levelSnailTiers[0]);
         loadUserProgress();
 
-        // --- RAIN SYSTEM ---
+        // --- RAIN SYSTEM (Adjusted to fall right over nursery platform) ---
         const rainCount = 200;
         const rainGeo = new THREE.BufferGeometry();
         const rainPositions = new Float32Array(rainCount * 3);
 
         for(let i = 0; i < rainCount * 3; i += 3) {
-            rainPositions[i] = (Math.random() - 0.5) * 3;
-            rainPositions[i+1] = Math.random() * 4 + 2;
-            rainPositions[i+2] = (Math.random() - 0.5) * 3;
+            rainPositions[i] = (Math.random() - 0.5) * 4;
+            rainPositions[i+1] = Math.random() * 2.8 + 0.2; // Spawn bounds between 0.2 and 3.0 height
+            rainPositions[i+2] = (Math.random() - 0.5) * 4;
         }
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
         const rainMat = new THREE.PointsMaterial({ color: 0x4cc9f0, size: 0.05, transparent: true, opacity: 0 });
@@ -321,8 +389,9 @@
             if(isRaining) {
                 const positions = rainSystem.geometry.attributes.position.array;
                 for(let i = 1; i < rainCount * 3; i += 3) {
-                    positions[i] -= 0.1;
-                    if(positions[i] < 2) positions[i] = 5;
+                    positions[i] -= 0.08;
+                    // Reset rain back near the leaf level (Y = 3.0) when it hits the ground platform
+                    if(positions[i] < -1.5) positions[i] = 3.0;
                 }
                 rainSystem.geometry.attributes.position.needsUpdate = true;
             }
@@ -365,3 +434,4 @@
     </script>
 </body>
 </html>
+
