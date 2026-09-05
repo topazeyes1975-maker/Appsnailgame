@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Snail Rescue - Level 3 (Dense Maze)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        #top-hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .hud-panel {
+            background: rgba(15, 15, 30, 0.85);
+            border: 1px solid rgba(0, 255, 200, 0.4);
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #e0f7fc;
+            font-size: 14px;
+            backdrop-filter: blur(4px);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #00ffcc;
+            text-shadow: 0 0 8px rgba(0,255,204,0.6);
+        }
+
+        #health-bar-container {
+            width: 140px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid #00ffcc;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+
+        #health-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: #00ffcc;
+            transition: width 0.2s ease, background-color 0.2s ease;
+        }
+
+        #status-msg {
+            color: #ffea00;
+            font-weight: bold;
+            display: none;
+        }
+
+        #gps-container {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            background: rgba(5, 15, 25, 0.9);
+            border: 2px solid #00ffcc;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
+            pointer-events: auto;
+        }
+
+        #gps-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #gps-label {
+            position: absolute;
+            bottom: 4px;
+            width: 100%;
+            text-align: center;
+            font-size: 8px;
+            font-weight: bold;
+            color: #00ffcc;
+            letter-spacing: 1px;
+            text-shadow: 0 0 2px #000;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #ff007f;
+        }
+
+        /* D-PAD CONTROLS */
+        #dpad-zone {
+            position: absolute;
+            bottom: 60px;
+            left: 60px;
+            width: 210px;
+            height: 210px;
+            pointer-events: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        .dbtn {
+            background: rgba(0, 255, 204, 0.2);
+            border: 3px solid #00ffcc;
+            border-radius: 12px;
+            color: #00ffcc;
+            font-size: 32px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 0 12px rgba(0, 255, 204, 0.3);
+        }
+
+        .dbtn:active, .dbtn.active {
+            background: rgba(0, 255, 204, 0.7);
+            color: #050510;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.9);
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+
+        #game-over-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 25, 0.95);
+            border: 2px solid #00ffcc;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            color: white;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+            pointer-events: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
+            min-width: 280px;
+        }
+
+        .star-rating {
+            font-size: 32px;
+            color: #444;
+            letter-spacing: 5px;
+        }
+
+        .star-gold {
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+        }
+
+        #btn-action {
+            background: #ff007f;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="top-hud">
+            <div class="hud-panel">
+                <div id="title">SNAIL RESCUE - LEVEL 3</div>
+                <div>Health:</div>
+                <div id="health-bar-container">
+                    <div id="health-bar-fill"></div>
+                </div>
+                <div>Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
+                <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
+            </div>
+
+            <div id="gps-container">
+                <canvas id="gps-canvas" width="110" height="110"></canvas>
+                <div id="gps-label">GPS RADAR</div>
+            </div>
+        </div>
+
+        <div id="dpad-zone">
+            <div id="btn-up" class="dbtn">▲</div>
+            <div id="btn-left" class="dbtn">◀</div>
+            <div id="btn-right" class="dbtn">▶</div>
+            <div id="btn-down" class="dbtn">▼</div>
+        </div>
+    </div>
+
+    <div id="game-over-modal">
+        <h2 id="modal-title" style="margin:0; color:#00ffcc;">MISSION COMPLETE!</h2>
+        <div id="star-container" class="star-rating">★ ★ ★</div>
+        <p id="modal-msg">You safely returned all baby snails home!</p>
+        <button id="btn-action" onclick="handleModalAction()">NEXT LEVEL</button>
+    </div>
+
+    <script>
+        const ASSETS = {
+            wallTex: '1787589407750~2.jpg',
+            floorTex: '1785671824766.png',
+            playerModel: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb',
+            babyModel: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb',
+            guardModel: 'Meshy_AI_Nebula Vanguard_1785730919_image-to-3d-texture-compressed.glb',
+            bellModel: 'Meshy_AI_Neon Liberty Bell_1785740945_image-to-3d-texture-compressed.glb',
+            baseModel: 'home_base_model.glb'
+        };
+
+        // Expanded 15x15 maze grid and narrower cell thickness
+        const MAZE_SIZE = 15;
+        const CELL_SIZE = 2.8; // Thinner walls and tighter corridors
+        
+        const SPEED = 8.0;
+        const GUARD_PATROL_SPEED = 2.4;
+        const GUARD_CHASE_SPEED = 4.6;
+        const ROT_SPEED = 2.5; 
+
+        let scene, camera, renderer, clock;
+        let snailGroup, bellGroup, homeBaseGroup;
+        let bellVelocity = { x: 3.0, z: 2.2 };
+        let isFrozen = false, freezeTimer = 0;
+        let homeCount = 0;
+        const TOTAL_BABIES = 3;
+        let playerHealth = 100;
+        let isGameOver = false;
+        let levelWon = false;
+
+        let moveFlags = { up: false, down: false, left: false, right: false };
+        let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
+
+        // Starting Home Base position in grid coordinates (Bottom-Left open area)
+        const homeBasePos = { x: -16.8, z: 16.8 };
+        const tempPlayerBox = new THREE.Box3();
+        const raycaster = new THREE.Raycaster();
+
+        const gltfLoader = new THREE.GLTFLoader();
+        const textureLoader = new THREE.TextureLoader();
+
+        // 15x15 Dense, complex wall layout
+        const mazeGrid = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+            [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+            [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],
+            [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,1,1,0,1,1,1,0,1,1,1,0,1,0,1],
+            [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+            [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1],
+            [1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],
+            [1,0,1,0,1,1,1,0,1,1,1,0,1,0,1],
+            [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+            [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.FogExp2(0x0a0a1a, 0.02);
+
+            clock = new THREE.Clock();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x00ffff, 1.0);
+            dirLight.position.set(20, 40, 20);
+            scene.add(dirLight);
+
+            buildMaze();
+            spawnHomeBase();
+            createPlayer();
+            spawnLibertyBell();
+            spawnBabies();
+            spawnGuards();
+
+            bindDPad();
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function createFallbackTexture(c1, c2) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = c1; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = c2; ctx.fillRect(0, 0, 128, 128); ctx.fillRect(128, 128, 128, 128);
+            ctx.strokeStyle = '#00ffcc'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, 256, 256);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function buildMaze() {
+            const floorTex = textureLoader.load(ASSETS.floorTex, 
+                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 12); t.needsUpdate = true; },
+                undefined, () => createFallbackTexture('#0f0f2d', '#1a1a40')
+            );
+
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
+            const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            const wallTex = textureLoader.load(ASSETS.wallTex, 
+                (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1); t.needsUpdate = true; },
+                undefined, () => createFallbackTexture('#1a233a', '#223355')
+            );
+
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
+            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
+            const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
+
+            for (let r = 0; r < MAZE_SIZE; r++) {
+                for (let c = 0; c < MAZE_SIZE; c++) {
+                    if (mazeGrid[r][c] === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(c * CELL_SIZE - offset, 1.5, r * CELL_SIZE - offset);
+                        scene.add(wall);
+                        walls.push(new THREE.Box3().setFromObject(wall));
+                        wallMeshes.push(wall);
+                    }
+                }
+            }
+        }
+
+        function spawnHomeBase() {
+            homeBaseGroup = new THREE.Group();
+            homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
+            scene.add(homeBaseGroup);
+
+            const baseLight = new THREE.PointLight(0x00ffcc, 2.5, 6);
+            baseLight.position.set(0, 1.5, 0);
+            homeBaseGroup.add(baseLight);
+
+            gltfLoader.load(ASSETS.baseModel, (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                model.position.y = -box.min.y;
+                model.scale.set(0.7, 0.7, 0.7);
+                homeBaseGroup.add(model);
+            }, undefined, () => {
+                const padMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.4, 1.6, 0.1, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x003344, emissive: 0x00ffff, roughness: 0.2 })
+                );
+                padMesh.position.y = 0.05;
+                homeBaseGroup.add(padMesh);
+            });
+        }
+
+        function createPlayer() {
+            snailGroup = new THREE.Group();
+            snailGroup.position.set(homeBasePos.x + 1.0, 0.4, homeBasePos.z + 1.0);
+            scene.add(snailGroup);
+
+            gltfLoader.load(ASSETS.playerModel, (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                model.position.y = -box.min.y;
+                model.scale.set(0.7, 0.7, 0.7);
+                snailGroup.add(model);
+            }, undefined, () => {
+                const body = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.6, 1.2, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xff007f })
+                );
+                body.rotation.x = Math.PI / 3;
+                body.position.y = 0.5;
+                snailGroup.add(body);
+            });
+        }
+
+        function spawnLibertyBell() {
+            bellGroup = new THREE.Group();
+            bellGroup.position.set(0, 1.2, 0);
+            scene.add(bellGroup);
+
+            const bellLight = new THREE.PointLight(0x00ffff, 2, 8);
+            bellGroup.add(bellLight);
+
+            gltfLoader.load(ASSETS.bellModel, (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                model.position.y = -box.min.y;
+                model.scale.set(0.55, 0.55, 0.55);
+                bellGroup.add(model);
+            }, undefined, () => {
+                const bellMat = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x004455, roughness: 0.2 });
+                const bellMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.6, 1.1, 12), bellMat);
+                bellMesh.position.y = 0.6;
+                bellGroup.add(bellMesh);
+            });
+        }
+
+        // Updated Baby Positions across the larger 15x15 maze
+        function spawnBabies() {
+            const positions = [
+                { x: 16.8, z: -16.8 },  // Top Right Alcove
+                { x: 16.8, z: 11.2 },   // Bottom Right Corner
+                { x: -16.8, z: -5.6 }   // Far Left Corridor
+            ];
+
+            positions.forEach((pos, idx) => {
+                const babyGroup = new THREE.Group();
+                babyGroup.position.set(pos.x, 0.3, pos.z);
+                scene.add(babyGroup);
+
+                gltfLoader.load(ASSETS.babyModel, (gltf) => {
+                    const model = gltf.scene;
+                    const box = new THREE.Box3().setFromObject(model);
+                    model.position.y = -box.min.y;
+                    model.scale.set(0.35, 0.35, 0.35);
+                    babyGroup.add(model);
+                }, undefined, () => {
+                    const shell = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.3, 12, 12),
+                        new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 })
+                    );
+                    shell.position.set(0, 0.3, -0.1);
+                    babyGroup.add(shell);
+                });
+
+                babies.push({ id: idx, mesh: babyGroup, following: false, returnedHome: false });
+            });
+        }
+
+        function spawnGuards() {
+            const guardConfigs = [
+                { waypoints: [{ x: -5.6, z: -11.2 }, { x: 5.6, z: -11.2 }], startIdx: 0 },
+                { waypoints: [{ x: 11.2, z: -5.6 }, { x: 11.2, z: 5.6 }], startIdx: 0 },
+                { waypoints: [{ x: -11.2, z: 5.6 }, { x: -11.2, z: -5.6 }], startIdx: 0 }
+            ];
+
+            guardConfigs.forEach(cfg => {
+                const guardGroup = new THREE.Group();
+                const startPos = cfg.waypoints[cfg.startIdx];
+                guardGroup.position.set(startPos.x, 0.5, startPos.z);
+                scene.add(guardGroup);
+
+                gltfLoader.load(ASSETS.guardModel, (gltf) => {
+                    const model = gltf.scene;
+                    const box = new THREE.Box3().setFromObject(model);
+                    model.position.y = -box.min.y;
+                    model.scale.set(0.65, 0.65, 0.65);
+                    guardGroup.add(model);
+                }, undefined, () => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8),
+                        new THREE.MeshStandardMaterial({ color: 0xff3300 })
+                    );
+                    mesh.position.y = 0.7;
+                    guardGroup.add(mesh);
+                });
+
+                guards.push({
+                    mesh: guardGroup,
+                    waypoints: cfg.waypoints,
+                    currentWaypointIdx: cfg.startIdx,
+                    lastShot: 0,
+                    state: 'PATROL',
+                    lostSightTimer: 0
+                });
+            });
+        }
+
+        function bindDPad() {
+            const btnMap = { 'btn-up': 'up', 'btn-down': 'down', 'btn-left': 'left', 'btn-right': 'right' };
+
+            Object.keys(btnMap).forEach(id => {
+                const btn = document.getElementById(id);
+                const key = btnMap[id];
+
+                const startAction = (e) => { e.preventDefault(); moveFlags[key] = true; btn.classList.add('active'); };
+                const stopAction = (e) => { e.preventDefault(); moveFlags[key] = false; btn.classList.remove('active'); };
+
+                btn.addEventListener('touchstart', startAction, { passive: false });
+                btn.addEventListener('touchend', stopAction, { passive: false });
+                btn.addEventListener('touchcancel', stopAction, { passive: false });
+                btn.addEventListener('mousedown', startAction);
+                btn.addEventListener('mouseup', stopAction);
+                btn.addEventListener('mouseleave', stopAction);
+            });
+     window.addEventListener('keydown', e => {
+                if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
+                if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
+                if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
+                if (['d','ArrowRight'].includes(e.key)) moveFlags.right = true;
+            });
+            window.addEventListener('keyup', e => {
+                if (['w','ArrowUp'].includes(e.key)) moveFlags.up = false;
+                if (['s','ArrowDown'].includes(e.key)) moveFlags.down = false;
+                if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = false;
+                if (['d','ArrowRight'].includes(e.key)) moveFlags.right = false;
+            });
+        }
+
+        function checkGuardLineOfSight(guard) {
+            if (!snailGroup) return false;
+
+            const guardPos = guard.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+            const playerPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+            
+            const dist = guardPos.distanceTo(playerPos);
+            if (dist > 10) return false;
+
+            const guardDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), guard.mesh.rotation.y);
+            const toPlayerDir = new THREE.Vector3().subVectors(playerPos, guardPos).normalize();
+
+            const angle = guardDir.angleTo(toPlayerDir);
+            if (angle > Math.PI / 3) return false;
+
+            raycaster.set(guardPos, toPlayerDir);
+            const intersects = raycaster.intersectObjects(wallMeshes);
+
+            if (intersects.length > 0 && intersects[0].distance < dist) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function shootLaser(guardPos) {
+            if (!snailGroup) return;
+
+            const laserGeo = new THREE.SphereGeometry(0.18, 8, 8);
+            const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const laserMesh = new THREE.Mesh(laserGeo, laserMat);
+
+            laserMesh.position.set(guardPos.x, 0.8, guardPos.z);
+            scene.add(laserMesh);
+
+            const dir = new THREE.Vector3().subVectors(snailGroup.position, guardPos).normalize();
+            projectiles.push({ mesh: laserMesh, dir: dir, life: 120 });
+        }
+
+        function takeDamage(amount) {
+            playerHealth = Math.max(0, playerHealth - amount);
+            const fill = document.getElementById('health-bar-fill');
+            fill.style.width = playerHealth + '%';
+
+            if (playerHealth < 30) fill.style.backgroundColor = '#ff0055';
+            else if (playerHealth < 60) fill.style.backgroundColor = '#ffea00';
+
+            if (playerHealth <= 0) endGame(false, "HEALTH DEPLETED!");
+        }
+
+        function checkWallCollision(newPos, radius = 0.35) {
+            tempPlayerBox.min.set(newPos.x - radius, 0, newPos.z - radius);
+            tempPlayerBox.max.set(newPos.x + radius, 1.5, newPos.z + radius);
+
+            for (let i = 0; i < walls.length; i++) {
+                if (tempPlayerBox.intersectsBox(walls[i])) return true;
+            }
+            return false;
+        }
+
+        function updateGPS() {
+            const gpsCanvas = document.getElementById('gps-canvas');
+            const ctx = gpsCanvas.getContext('2d');
+            ctx.clearRect(0, 0, 110, 110);
+
+            const mapScale = 90 / (MAZE_SIZE * CELL_SIZE); 
+            const centerX = 55, centerY = 55;
+
+            ctx.fillStyle = '#112233';
+            const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
+            for (let r = 0; r < MAZE_SIZE; r++) {
+                for (let c = 0; c < MAZE_SIZE; c++) {
+                    if (mazeGrid[r][c] === 1) {
+                        const wx = (c * CELL_SIZE - offset) * mapScale + centerX;
+                        const wz = (r * CELL_SIZE - offset) * mapScale + centerY;
+                        ctx.fillRect(wx - 2.5, wz - 2.5, 5, 5);
+                    }
+                }
+            }
+
+            const hx = homeBasePos.x * mapScale + centerX;
+            const hz = homeBasePos.z * mapScale + centerY;
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillRect(hx - 3.5, hz - 3.5, 7, 7);
+
+            ctx.fillStyle = '#ffff00';
+            babies.forEach(b => {
+                if (!b.returnedHome) {
+                    const bx = b.mesh.position.x * mapScale + centerX;
+                    const bz = b.mesh.position.z * mapScale + centerY;
+                    ctx.beginPath();
+                    ctx.arc(bx, bz, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            guards.forEach(g => {
+                ctx.fillStyle = (g.state === 'CHASE') ? '#ff0000' : '#ff0055';
+                const gx = g.mesh.position.x * mapScale + centerX;
+                const gz = g.mesh.position.z * mapScale + centerY;
+                ctx.beginPath();
+                ctx.arc(gx, gz, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            if (bellGroup) {
+                ctx.fillStyle = '#00ffff';
+                const lx = bellGroup.position.x * mapScale + centerX;
+                const lz = bellGroup.position.z * mapScale + centerY;
+                ctx.beginPath();
+                ctx.arc(lx, lz, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (snailGroup) {
+                const px = snailGroup.position.x * mapScale + centerX;
+                const pz = snailGroup.position.z * mapScale + centerY;
+
+                ctx.save();
+                ctx.translate(px, pz);
+                ctx.rotate(-snailGroup.rotation.y);
+                ctx.fillStyle = '#39ff14';
+                ctx.beginPath();
+                ctx.moveTo(0, -4.5);
+                ctx.lineTo(-2.5, 3.5);
+                ctx.lineTo(2.5, 3.5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function animate() {
+            if (isGameOver) return;
+            requestAnimationFrame(animate);
+
+            const delta = Math.min(clock.getDelta(), 0.1);
+            const now = Date.now();
+
+            if (isFrozen) {
+                freezeTimer -= delta * 1000;
+                if (freezeTimer <= 0) {
+                    isFrozen = false;
+                    document.getElementById('status-msg').style.display = 'none';
+                }
+            }
+
+            if (!isFrozen && snailGroup) {
+                if (moveFlags.left) snailGroup.rotation.y += ROT_SPEED * delta;
+                if (moveFlags.right) snailGroup.rotation.y -= ROT_SPEED * delta;
+
+                let moveDir = 0;
+                if (moveFlags.up) moveDir += 1;
+                if (moveFlags.down) moveDir -= 1;
+
+                if (moveDir !== 0) {
+                    const moveDistance = moveDir * SPEED * delta;
+                    const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
+                    const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
+
+                    if (!checkWallCollision({ x: nextX, z: snailGroup.position.z })) snailGroup.position.x = nextX;
+                    if (!checkWallCollision({ x: snailGroup.position.x, z: nextZ })) snailGroup.position.z = nextZ;
+                }
+            }
+
+            if (bellGroup) {
+                bellGroup.rotation.y += 1.2 * delta;
+                const nextBellX = bellGroup.position.x + bellVelocity.x * delta;
+                const nextBellZ = bellGroup.position.z + bellVelocity.z * delta;
+
+                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
+                else bellGroup.position.x = nextBellX;
+
+                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
+                else bellGroup.position.z = nextBellZ;
+
+                if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) {
+                    isFrozen = true;
+                    freezeTimer = 2500;
+                    document.getElementById('status-msg').style.display = 'block';
+                }
+            }
+
+            guards.forEach(guard => {
+                const canSeePlayer = checkGuardLineOfSight(guard);
+
+                if (canSeePlayer) {
+                    guard.state = 'CHASE';
+                    guard.lostSightTimer = 0;
+                } else if (guard.state === 'CHASE') {
+                    guard.lostSightTimer += delta;
+                    if (guard.lostSightTimer > 2.0) {
+                        guard.state = 'PATROL';
+                    }
+                }
+
+                if (guard.state === 'CHASE' && snailGroup) {
+                    const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
+                    dir.y = 0;
+                    dir.normalize();
+
+                    const nextX = guard.mesh.position.x + dir.x * GUARD_CHASE_SPEED * delta;
+                    const nextZ = guard.mesh.position.z + dir.z * GUARD_CHASE_SPEED * delta;
+
+                    if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z })) guard.mesh.position.x = nextX;
+                    if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ })) guard.mesh.position.z = nextZ;
+
+                    guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+
+                    if (now - guard.lastShot > 1400) {
+                        shootLaser(guard.mesh.position);
+                        guard.lastShot = now;
+                    }
+                } else {
+                    const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
+                    const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
+                    dir.y = 0;
+                    const distToWaypoint = dir.length();
+
+                    if (distToWaypoint < 0.3) {
+                        guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
+                    } else {
+                        dir.normalize();
+                        guard.mesh.position.x += dir.x * GUARD_PATROL_SPEED * delta;
+                        guard.mesh.position.z += dir.z * GUARD_PATROL_SPEED * delta;
+                        guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+                    }
+                }
+
+                if (snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.1) {
+                    endGame(false, "GOTCHA!");
+                }
+            });
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const proj = projectiles[i];
+                proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
+                proj.life -= delta * 60;
+
+                if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) {
+                    scene.remove(proj.mesh);
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                let hitDetected = false;
+                if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.7) hitDetected = true;
+
+                if (!hitDetected) {
+                    babies.forEach(baby => {
+                        if (baby.following && !baby.returnedHome) {
+                            if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.5) hitDetected = true;
+                        }
+                    });
+                }
+
+                if (hitDetected) {
+                    scene.remove(proj.mesh);
+                    projectiles.splice(i, 1);
+                    takeDamage(25);
+                    return;
+                }
+            }
+
+            if (snailGroup) {
+                const camDistance = 7.5;
+                const camHeight = 4.8;
+
+                const camX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * camDistance;
+                const camZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * camDistance;
+
+                camera.position.set(camX, snailGroup.position.y + camHeight, camZ);
+                camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.8, snailGroup.position.z);
+            }
+
+            let followers = babies.filter(b => b.following && !b.returnedHome);
+
+            babies.forEach(baby => {
+                if (baby.returnedHome) return;
+                baby.mesh.rotation.y += 1.2 * delta;
+
+                if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.4) {
+                    baby.following = true;
+                }
+
+                if (baby.following) {
+                    const followIdx = followers.indexOf(baby) + 1;
+                    const targetDistance = followIdx * 1.1;
+
+                    const targetX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * targetDistance;
+                    const targetZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * targetDistance;
+
+                    const followSpeed = 6.0 * delta;
+                    baby.mesh.position.x += (targetX - baby.mesh.position.x) * followSpeed;
+                    baby.mesh.position.z += (targetZ - baby.mesh.position.z) * followSpeed;
+
+                    const distToBase = baby.mesh.position.distanceTo(homeBaseGroup.position);
+                    if (distToBase < 1.6) {
+                        baby.following = false;
+                        baby.returnedHome = true;
+                        scene.remove(baby.mesh);
+                        homeCount++;
+                        document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`;
+
+                        if (homeCount === TOTAL_BABIES) endGame(true);
+                    }
+                }
+            });
+
+            updateGPS();
+            renderer.render(scene, camera);
+        }
+
+        function handleModalAction() {
+            if (levelWon) {
+                window.location.href = 'level4.html';
+            } else {
+                location.reload();
+            }
+        }
+
+        function endGame(isWin, customMsg) {
+            isGameOver = true;
+            levelWon = isWin;
+            const modal = document.getElementById('game-over-modal');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-msg');
+            const starContainer = document.getElementById('star-container');
+            const actionBtn = document.getElementById('btn-action');
+
+            if (isWin) {
+                title.innerText = "LEVEL COMPLETE!";
+                title.style.color = "#00ffcc";
+                msg.innerText = "You navigated the complex maze and rescued all baby snails!";
+                actionBtn.innerText = "NEXT LEVEL (LEVEL 4)";
+
+                let stars = 1;
+                if (playerHealth >= 80) stars = 3;
+                else if (playerHealth >= 40) stars = 2;
+
+                let starHTML = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < stars) starHTML += '<span class="star-gold">★</span> ';
+                    else starHTML += '<span>★</span> ';
+                }
+                starContainer.innerHTML = starHTML;
+                starContainer.style.display = 'block';
+            } else {
+                title.innerText = customMsg || "CAUGHT BY GUARD!";
+                title.style.color = "#ff007f";
+                msg.innerText = "A guard spotted and blasted you!";
+                actionBtn.innerText = "PLAY AGAIN";
+                starContainer.style.display = 'none';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+         
+              
