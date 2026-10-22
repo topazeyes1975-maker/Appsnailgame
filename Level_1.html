@@ -514,7 +514,8 @@
                     currentWaypointIdx: cfg.startIdx,
                     lastShot: 0,
                     state: 'PATROL',
-                    lostSightTimer: 0
+                    lostSightTimer: 0,
+                    stuckTimer: 0
                 });
             });
         }
@@ -536,7 +537,8 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-window.addEventListener('keydown', e => {
+
+            window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
@@ -754,7 +756,6 @@ window.addEventListener('keydown', e => {
                     const nextX = guard.mesh.position.x + dir.x * GUARD_CHASE_SPEED * delta;
                     const nextZ = guard.mesh.position.z + dir.z * GUARD_CHASE_SPEED * delta;
 
-                    // Chase wall collision applied
                     if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) guard.mesh.position.x = nextX;
                     if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) guard.mesh.position.z = nextZ;
 
@@ -772,16 +773,34 @@ window.addEventListener('keydown', e => {
 
                     if (distToWaypoint < 0.3) {
                         guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
+                        guard.stuckTimer = 0;
                     } else {
                         dir.normalize();
                         const nextX = guard.mesh.position.x + dir.x * GUARD_PATROL_SPEED * delta;
                         const nextZ = guard.mesh.position.z + dir.z * GUARD_PATROL_SPEED * delta;
 
-                        // Patrol wall collision applied (FIXED)
-                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) guard.mesh.position.x = nextX;
-                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) guard.mesh.position.z = nextZ;
+                        let movedX = false, movedZ = false;
+                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) {
+                            guard.mesh.position.x = nextX;
+                            movedX = true;
+                        }
+                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) {
+                            guard.mesh.position.z = nextZ;
+                            movedZ = true;
+                        }
 
                         guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+
+                        // Stuck detection: if blocked by a wall for over 1 second, skip to next waypoint
+                        if (!movedX && !movedZ) {
+                            guard.stuckTimer += delta;
+                            if (guard.stuckTimer > 1.0) {
+                                guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
+                                guard.stuckTimer = 0;
+                            }
+                        } else {
+                            guard.stuckTimer = 0;
+                        }
                     }
                 }
 
@@ -904,7 +923,7 @@ window.addEventListener('keydown', e => {
                 starContainer.innerHTML = starHTML;
                 starContainer.style.display = 'block';
             } else {
-                title.innerText = customMsg || "CAUGHT BY GUARD!";
+                title.innerText = customMsg || "CAUGHT BY GUARD! ";
                 title.style.color = "#ff007f";
                 msg.innerText = "A guard spotted and blasted you!";
                 actionBtn.innerText = "PLAY AGAIN";
