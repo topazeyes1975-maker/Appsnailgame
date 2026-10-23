@@ -537,8 +537,7 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-
-            window.addEventListener('keydown', e => {
+window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
@@ -942,3 +941,4 @@
     </script>
 </body>
 </html>
+            
