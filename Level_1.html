@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 3 (Dense Maze)</title>
+    <title>Snail Rescue - Level 3 (Roomba Patrol AI)</title>
     <style>
         body {
             margin: 0;
@@ -480,17 +480,18 @@
             });
         }
 
+        // --- ROOMBA / BUMP-AND-TURN GUARDS SPAWN ---
         function spawnGuards() {
-            const guardConfigs = [
-                { waypoints: [{ x: -5.6, z: -11.2 }, { x: 5.6, z: -11.2 }], startIdx: 0 },
-                { waypoints: [{ x: 11.2, z: -5.6 }, { x: 11.2, z: 5.6 }], startIdx: 0 },
-                { waypoints: [{ x: -11.2, z: 5.6 }, { x: -11.2, z: -5.6 }], startIdx: 0 }
+            // Spawn guards at distinct open corridor positions in the 15x15 maze
+            const startPositions = [
+                { x: -5.6, z: -11.2 },
+                { x: 11.2, z: -5.6 },
+                { x: -11.2, z: 5.6 }
             ];
 
-            guardConfigs.forEach(cfg => {
+            startPositions.forEach(pos => {
                 const guardGroup = new THREE.Group();
-                const startPos = cfg.waypoints[cfg.startIdx];
-                guardGroup.position.set(startPos.x, 0.5, startPos.z);
+                guardGroup.position.set(pos.x, 0.5, pos.z);
                 scene.add(guardGroup);
 
                 gltfLoader.load(ASSETS.guardModel, (gltf) => {
@@ -508,14 +509,16 @@
                     guardGroup.add(mesh);
                 });
 
+                // Give each guard a random initial wandering direction (Roomba style)
+                const randomAngle = Math.random() * Math.PI * 2;
+                const direction = new THREE.Vector3(Math.sin(randomAngle), 0, Math.cos(randomAngle)).normalize();
+
                 guards.push({
                     mesh: guardGroup,
-                    waypoints: cfg.waypoints,
-                    currentWaypointIdx: cfg.startIdx,
+                    direction: direction,
                     lastShot: 0,
-                    state: 'PATROL',
-                    lostSightTimer: 0,
-                    stuckTimer: 0
+                    state: 'PATROL', // PATROL (Roomba wander) or CHASE
+                    lostSightTimer: 0
                 });
             });
         }
@@ -537,7 +540,8 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-window.addEventListener('keydown', e => {
+
+            window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
@@ -734,6 +738,7 @@ window.addEventListener('keydown', e => {
                 }
             }
 
+            // --- ROOMBA BUMP-AND-TURN & CHASE GUARD AI ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -743,11 +748,12 @@ window.addEventListener('keydown', e => {
                 } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
-                        guard.state = 'PATROL';
+                        guard.state = 'PATROL'; // Resume Roomba wandering
                     }
                 }
 
                 if (guard.state === 'CHASE' && snailGroup) {
+                    // Chase player directly
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
                     dir.y = 0;
                     dir.normalize();
@@ -765,41 +771,22 @@ window.addEventListener('keydown', e => {
                         guard.lastShot = now;
                     }
                 } else {
-                    const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
-                    const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
-                    dir.y = 0;
-                    const distToWaypoint = dir.length();
+                    // --- ROOMBA WANDER (BUMP & TURN) ---
+                    const nextX = guard.mesh.position.x + guard.direction.x * GUARD_PATROL_SPEED * delta;
+                    const nextZ = guard.mesh.position.z + guard.direction.z * GUARD_PATROL_SPEED * delta;
 
-                    if (distToWaypoint < 0.3) {
-                        guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
-                        guard.stuckTimer = 0;
+                    let hitWall = false;
+                    if (checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) hitWall = true;
+                    if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) hitWall = true;
+
+                    if (hitWall) {
+                        // Bump! Pick a completely new random wandering direction
+                        const randomAngle = Math.random() * Math.PI * 2;
+                        guard.direction.set(Math.sin(randomAngle), 0, Math.cos(randomAngle));
                     } else {
-                        dir.normalize();
-                        const nextX = guard.mesh.position.x + dir.x * GUARD_PATROL_SPEED * delta;
-                        const nextZ = guard.mesh.position.z + dir.z * GUARD_PATROL_SPEED * delta;
-
-                        let movedX = false, movedZ = false;
-                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) {
-                            guard.mesh.position.x = nextX;
-                            movedX = true;
-                        }
-                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) {
-                            guard.mesh.position.z = nextZ;
-                            movedZ = true;
-                        }
-
-                        guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-
-                        // Stuck detection: if blocked by a wall for over 1 second, skip to next waypoint
-                        if (!movedX && !movedZ) {
-                            guard.stuckTimer += delta;
-                            if (guard.stuckTimer > 1.0) {
-                                guard.currentWaypointIdx = (guard.currentWaypointIdx + 1) % guard.waypoints.length;
-                                guard.stuckTimer = 0;
-                            }
-                        } else {
-                            guard.stuckTimer = 0;
-                        }
+                        guard.mesh.position.x = nextX;
+                        guard.mesh.position.z = nextZ;
+                        guard.mesh.rotation.y = Math.atan2(guard.direction.x, guard.direction.z);
                     }
                 }
 
@@ -922,7 +909,7 @@ window.addEventListener('keydown', e => {
                 starContainer.innerHTML = starHTML;
                 starContainer.style.display = 'block';
             } else {
-                title.innerText = customMsg || "CAUGHT BY GUARD! ";
+                title.innerText = customMsg || "CAUGHT BY GUARD!";
                 title.style.color = "#ff007f";
                 msg.innerText = "A guard spotted and blasted you!";
                 actionBtn.innerText = "PLAY AGAIN";
@@ -941,4 +928,3 @@ window.addEventListener('keydown', e => {
     </script>
 </body>
 </html>
-            
