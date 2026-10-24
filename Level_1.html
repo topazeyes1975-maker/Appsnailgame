@@ -507,7 +507,6 @@
                     guardGroup.add(mesh);
                 });
 
-                // Point them initially toward the center (0,0)
                 const toCenter = new THREE.Vector3(0, 0, 0).sub(guardGroup.position).normalize();
 
                 guards.push({
@@ -519,8 +518,7 @@
                 });
             });
         }
-
-        function bindDPad() {
+function bindDPad() {
             const btnMap = { 'btn-up': 'up', 'btn-down': 'down', 'btn-left': 'left', 'btn-right': 'right' };
 
             Object.keys(btnMap).forEach(id => {
@@ -735,7 +733,7 @@
                 }
             }
 
-            // --- SMART ROOMBA BUMP-AND-TURN (WITH CENTER ESCAPE) ---
+            // --- SMART ROOMBA BUMP-AND-TURN (FIXED UNSTICK METHOD) ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -767,7 +765,6 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    // --- SMART ROOMBA WANDER ---
                     const nextX = guard.mesh.position.x + guard.direction.x * GUARD_PATROL_SPEED * delta;
                     const nextZ = guard.mesh.position.z + guard.direction.z * GUARD_PATROL_SPEED * delta;
 
@@ -776,12 +773,11 @@
                     if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) hitWall = true;
 
                     if (hitWall) {
-                        // Unstick: step back slightly out of the wall
-                        guard.mesh.position.subScaledVector(guard.direction, GUARD_PATROL_SPEED * delta * 2);
+                        // FIX: Use addScaledVector with negative scale to safely step backward out of walls
+                        guard.mesh.position.addScaledVector(guard.direction, -GUARD_PATROL_SPEED * delta * 2);
 
-                        // Steer toward center (0,0) with randomized spread to escape corners
                         const toCenter = new THREE.Vector3(0, 0, 0).sub(guard.mesh.position).normalize();
-                        const randomSpread = (Math.random() - 0.5) * (Math.PI * 0.8); // +/- ~70 degrees spread
+                        const randomSpread = (Math.random() - 0.5) * (Math.PI * 0.8);
                         
                         guard.direction.copy(toCenter).applyAxisAngle(new THREE.Vector3(0, 1, 0), randomSpread);
                         guard.direction.y = 0;
