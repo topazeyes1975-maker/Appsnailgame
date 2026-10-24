@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 3 (Roomba Patrol AI)</title>
+    <title>Snail Rescue - Level 3 (Smart Roomba Patrol AI)</title>
     <style>
         body {
             margin: 0;
@@ -480,9 +480,7 @@
             });
         }
 
-        // --- ROOMBA / BUMP-AND-TURN GUARDS SPAWN ---
         function spawnGuards() {
-            // Spawn guards at distinct open corridor positions in the 15x15 maze
             const startPositions = [
                 { x: -5.6, z: -11.2 },
                 { x: 11.2, z: -5.6 },
@@ -509,15 +507,14 @@
                     guardGroup.add(mesh);
                 });
 
-                // Give each guard a random initial wandering direction (Roomba style)
-                const randomAngle = Math.random() * Math.PI * 2;
-                const direction = new THREE.Vector3(Math.sin(randomAngle), 0, Math.cos(randomAngle)).normalize();
+                // Point them initially toward the center (0,0)
+                const toCenter = new THREE.Vector3(0, 0, 0).sub(guardGroup.position).normalize();
 
                 guards.push({
                     mesh: guardGroup,
-                    direction: direction,
+                    direction: toCenter,
                     lastShot: 0,
-                    state: 'PATROL', // PATROL (Roomba wander) or CHASE
+                    state: 'PATROL',
                     lostSightTimer: 0
                 });
             });
@@ -738,7 +735,7 @@
                 }
             }
 
-            // --- ROOMBA BUMP-AND-TURN & CHASE GUARD AI ---
+            // --- SMART ROOMBA BUMP-AND-TURN (WITH CENTER ESCAPE) ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -748,12 +745,11 @@
                 } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
-                        guard.state = 'PATROL'; // Resume Roomba wandering
+                        guard.state = 'PATROL';
                     }
                 }
 
                 if (guard.state === 'CHASE' && snailGroup) {
-                    // Chase player directly
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
                     dir.y = 0;
                     dir.normalize();
@@ -771,7 +767,7 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    // --- ROOMBA WANDER (BUMP & TURN) ---
+                    // --- SMART ROOMBA WANDER ---
                     const nextX = guard.mesh.position.x + guard.direction.x * GUARD_PATROL_SPEED * delta;
                     const nextZ = guard.mesh.position.z + guard.direction.z * GUARD_PATROL_SPEED * delta;
 
@@ -780,9 +776,16 @@
                     if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) hitWall = true;
 
                     if (hitWall) {
-                        // Bump! Pick a completely new random wandering direction
-                        const randomAngle = Math.random() * Math.PI * 2;
-                        guard.direction.set(Math.sin(randomAngle), 0, Math.cos(randomAngle));
+                        // Unstick: step back slightly out of the wall
+                        guard.mesh.position.subScaledVector(guard.direction, GUARD_PATROL_SPEED * delta * 2);
+
+                        // Steer toward center (0,0) with randomized spread to escape corners
+                        const toCenter = new THREE.Vector3(0, 0, 0).sub(guard.mesh.position).normalize();
+                        const randomSpread = (Math.random() - 0.5) * (Math.PI * 0.8); // +/- ~70 degrees spread
+                        
+                        guard.direction.copy(toCenter).applyAxisAngle(new THREE.Vector3(0, 1, 0), randomSpread);
+                        guard.direction.y = 0;
+                        guard.direction.normalize();
                     } else {
                         guard.mesh.position.x = nextX;
                         guard.mesh.position.z = nextZ;
