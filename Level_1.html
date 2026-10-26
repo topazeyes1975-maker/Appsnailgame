@@ -479,18 +479,17 @@
             });
         }
 
-        // --- WAYPOINT / PRISONER PATROL SYSTEM ---
         function spawnGuards() {
             const guardConfigs = [
-                { waypoints: [{ x: -2.8, z: -11.2 }, { x: 8.4, z: -11.2 }] },
-                { waypoints: [{ x: 11.2, z: -5.6 }, { x: 11.2, z: 5.6 }] },
-                { waypoints: [{ x: -11.2, z: 2.8 }, { x: -2.8, z: 2.8 }] }
+                { waypoints: [new THREE.Vector3(-2.8, 0.5, -11.2), new THREE.Vector3(8.4, 0.5, -11.2)] },
+                { waypoints: [new THREE.Vector3(11.2, 0.5, -5.6), new THREE.Vector3(11.2, 0.5, 5.6)] },
+                { waypoints: [new THREE.Vector3(-11.2, 0.5, 2.8), new THREE.Vector3(-2.8, 0.5, 2.8)] }
             ];
 
             guardConfigs.forEach(cfg => {
                 const guardGroup = new THREE.Group();
                 const startPos = cfg.waypoints[0];
-                guardGroup.position.set(startPos.x, 0.5, startPos.z);
+                guardGroup.position.copy(startPos);
                 scene.add(guardGroup);
 
                 gltfLoader.load(ASSETS.guardModel, (gltf) => {
@@ -512,7 +511,7 @@
                     mesh: guardGroup,
                     waypoints: cfg.waypoints,
                     currentWaypointIdx: 0,
-                    patrolDirection: 1, // 1 forward, -1 backward (prisoner back-and-forth)
+                    patrolDirection: 1,
                     lastShot: 0,
                     state: 'PATROL',
                     lostSightTimer: 0
@@ -537,7 +536,8 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-window.addEventListener('keydown', e => {
+
+            window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
@@ -551,7 +551,6 @@ window.addEventListener('keydown', e => {
             });
         }
 
-        // --- BULLETPROOF GRID LINE-OF-SIGHT (NO SEEING THROUGH WALLS) ---
         function checkGridLineOfSight(guardPos, playerPos) {
             const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
             
@@ -572,7 +571,7 @@ window.addEventListener('keydown', e => {
             while (true) {
                 if (cx < 0 || cx >= MAZE_SIZE || cz < 0 || cz >= MAZE_SIZE) return false;
                 if (mazeGrid[cz][cx] === 1) {
-                    return false; // Wall blocks view completely!
+                    return false; 
                 }
                 if (cx === x1 && cz === z1) break;
                 let e2 = 2 * err;
@@ -764,7 +763,6 @@ window.addEventListener('keydown', e => {
                 }
             }
 
-            // --- PRISONER BACK-AND-FORTH WAYPOINT PATROL & CHASE AI ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -774,7 +772,7 @@ window.addEventListener('keydown', e => {
                 } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
-                        guard.state = 'PATROL'; // Resume prisoner patrol route
+                        guard.state = 'PATROL'; 
                     }
                 }
 
@@ -796,7 +794,6 @@ window.addEventListener('keydown', e => {
                         guard.lastShot = now;
                     }
                 } else {
-                    // --- BACK-AND-FORTH WAYPOINT MOVEMENT ---
                     const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
                     const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
                     dir.y = 0;
@@ -909,7 +906,7 @@ window.addEventListener('keydown', e => {
 
         function handleModalAction() {
             if (levelWon) {
-                window.location.href = 'level4.html';
+                window.location.href = 'level2.html';
             } else {
                 location.reload();
             }
@@ -928,7 +925,7 @@ window.addEventListener('keydown', e => {
                 title.innerText = "LEVEL COMPLETE!";
                 title.style.color = "#00ffcc";
                 msg.innerText = "You navigated the complex maze and rescued all baby snails!";
-                actionBtn.innerText = "NEXT LEVEL (LEVEL 4)";
+                actionBtn.innerText = "NEXT LEVEL (LEVEL 2)";
 
                 let stars = 1;
                 if (playerHealth >= 80) stars = 3;
@@ -961,4 +958,3 @@ window.addEventListener('keydown', e => {
     </script>
 </body>
 </html>
-            
