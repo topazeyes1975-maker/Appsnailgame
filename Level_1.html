@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 3 (Smart Roomba Patrol AI)</title>
+    <title>Snail Rescue - Level 3 (Waypoint Patrol AI)</title>
     <style>
         body {
             margin: 0;
@@ -278,7 +278,6 @@
 
         const homeBasePos = { x: -16.8, z: 16.8 };
         const tempPlayerBox = new THREE.Box3();
-        const raycaster = new THREE.Raycaster();
 
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
@@ -480,16 +479,18 @@
             });
         }
 
+        // --- WAYPOINT / PRISONER PATROL SYSTEM ---
         function spawnGuards() {
-            const startPositions = [
-                { x: -5.6, z: -11.2 },
-                { x: 11.2, z: -5.6 },
-                { x: -11.2, z: 5.6 }
+            const guardConfigs = [
+                { waypoints: [{ x: -2.8, z: -11.2 }, { x: 8.4, z: -11.2 }] },
+                { waypoints: [{ x: 11.2, z: -5.6 }, { x: 11.2, z: 5.6 }] },
+                { waypoints: [{ x: -11.2, z: 2.8 }, { x: -2.8, z: 2.8 }] }
             ];
 
-            startPositions.forEach(pos => {
+            guardConfigs.forEach(cfg => {
                 const guardGroup = new THREE.Group();
-                guardGroup.position.set(pos.x, 0.5, pos.z);
+                const startPos = cfg.waypoints[0];
+                guardGroup.position.set(startPos.x, 0.5, startPos.z);
                 scene.add(guardGroup);
 
                 gltfLoader.load(ASSETS.guardModel, (gltf) => {
@@ -507,12 +508,11 @@
                     guardGroup.add(mesh);
                 });
 
-                const randomAngle = Math.random() * Math.PI * 2;
-                const direction = new THREE.Vector3(Math.sin(randomAngle), 0, Math.cos(randomAngle)).normalize();
-
                 guards.push({
                     mesh: guardGroup,
-                    direction: direction,
+                    waypoints: cfg.waypoints,
+                    currentWaypointIdx: 0,
+                    patrolDirection: 1, // 1 forward, -1 backward (prisoner back-and-forth)
                     lastShot: 0,
                     state: 'PATROL',
                     lostSightTimer: 0
@@ -537,8 +537,7 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-
-            window.addEventListener('keydown', e => {
+window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
@@ -552,11 +551,48 @@
             });
         }
 
+        // --- BULLETPROOF GRID LINE-OF-SIGHT (NO SEEING THROUGH WALLS) ---
+        function checkGridLineOfSight(guardPos, playerPos) {
+            const offset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
+            
+            const x0 = Math.floor((guardPos.x + offset + CELL_SIZE/2) / CELL_SIZE);
+            const z0 = Math.floor((guardPos.z + offset + CELL_SIZE/2) / CELL_SIZE);
+            const x1 = Math.floor((playerPos.x + offset + CELL_SIZE/2) / CELL_SIZE);
+            const z1 = Math.floor((playerPos.z + offset + CELL_SIZE/2) / CELL_SIZE);
+
+            let dx = Math.abs(x1 - x0);
+            let dz = Math.abs(z1 - z0);
+            let sx = (x0 < x1) ? 1 : -1;
+            let sz = (z0 < z1) ? 1 : -1;
+            let err = dx - dz;
+
+            let cx = x0;
+            let cz = z0;
+
+            while (true) {
+                if (cx < 0 || cx >= MAZE_SIZE || cz < 0 || cz >= MAZE_SIZE) return false;
+                if (mazeGrid[cz][cx] === 1) {
+                    return false; // Wall blocks view completely!
+                }
+                if (cx === x1 && cz === z1) break;
+                let e2 = 2 * err;
+                if (e2 > -dz) {
+                    err -= dz;
+                    cx += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    cz += sz;
+                }
+            }
+            return true;
+        }
+
         function checkGuardLineOfSight(guard) {
             if (!snailGroup) return false;
 
-            const guardPos = guard.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-            const playerPos = snailGroup.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+            const guardPos = guard.mesh.position;
+            const playerPos = snailGroup.position;
             
             const dist = guardPos.distanceTo(playerPos);
             if (dist > 10) return false;
@@ -567,14 +603,7 @@
             const angle = guardDir.angleTo(toPlayerDir);
             if (angle > Math.PI / 3) return false;
 
-            raycaster.set(guardPos, toPlayerDir);
-            const intersects = raycaster.intersectObjects(wallMeshes);
-
-            if (intersects.length > 0 && intersects[0].distance < dist) {
-                return false;
-            }
-
-            return true;
+            return checkGridLineOfSight(guardPos, playerPos);
         }
 
         function shootLaser(guardPos) {
@@ -735,7 +764,7 @@
                 }
             }
 
-            // --- SMART ROOMBA BUMP-AND-TURN (CORNER REVERSE FIX) ---
+            // --- PRISONER BACK-AND-FORTH WAYPOINT PATROL & CHASE AI ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -745,7 +774,7 @@
                 } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
-                        guard.state = 'PATROL';
+                        guard.state = 'PATROL'; // Resume prisoner patrol route
                     }
                 }
 
@@ -767,27 +796,30 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    const nextX = guard.mesh.position.x + guard.direction.x * GUARD_PATROL_SPEED * delta;
-                    const nextZ = guard.mesh.position.z + guard.direction.z * GUARD_PATROL_SPEED * delta;
+                    // --- BACK-AND-FORTH WAYPOINT MOVEMENT ---
+                    const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
+                    const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
+                    dir.y = 0;
+                    const distToWaypoint = dir.length();
 
-                    let hitWall = false;
-                    if (checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) hitWall = true;
-                    if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) hitWall = true;
-
-                    if (hitWall) {
-                        // Step back out of the wall
-                        guard.mesh.position.addScaledVector(guard.direction, -GUARD_PATROL_SPEED * delta * 2);
-
-                        // Reverse direction and pick a wide escape turn angle to avoid dead-ends
-                        guard.direction.negate();
-                        const escapeTurn = (Math.random() - 0.5) * Math.PI; 
-                        guard.direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), escapeTurn);
-                        guard.direction.y = 0;
-                        guard.direction.normalize();
+                    if (distToWaypoint < 0.4) {
+                        guard.currentWaypointIdx += guard.patrolDirection;
+                        if (guard.currentWaypointIdx >= guard.waypoints.length) {
+                            guard.patrolDirection = -1;
+                            guard.currentWaypointIdx = guard.waypoints.length - 2;
+                        } else if (guard.currentWaypointIdx < 0) {
+                            guard.patrolDirection = 1;
+                            guard.currentWaypointIdx = 1;
+                        }
                     } else {
-                        guard.mesh.position.x = nextX;
-                        guard.mesh.position.z = nextZ;
-                        guard.mesh.rotation.y = Math.atan2(guard.direction.x, guard.direction.z);
+                        dir.normalize();
+                        const nextX = guard.mesh.position.x + dir.x * GUARD_PATROL_SPEED * delta;
+                        const nextZ = guard.mesh.position.z + dir.z * GUARD_PATROL_SPEED * delta;
+
+                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) guard.mesh.position.x = nextX;
+                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) guard.mesh.position.z = nextZ;
+
+                        guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
                     }
                 }
 
@@ -929,3 +961,4 @@
     </script>
 </body>
 </html>
+            
