@@ -61,6 +61,36 @@
       letter-spacing: 1px;
     }
 
+    /* Story Prologue Box */
+    .story-box {
+      width: 90%;
+      max-width: 700px;
+      background: var(--panel-bg);
+      border: 2px solid rgba(0, 255, 204, 0.4);
+      border-radius: 12px;
+      padding: 25px;
+      margin: 25px auto;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 25px rgba(0, 255, 204, 0.15);
+      text-align: left;
+    }
+
+    .story-box h2 {
+      color: var(--neon-cyan);
+      font-size: 1.3rem;
+      margin-top: 0;
+      text-align: center;
+      letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(0,255,204,0.5);
+    }
+
+    .story-box p {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #c0e0ef;
+      margin-bottom: 15px;
+    }
+
     /* Buttons & Controls */
     .btn-container {
       display: flex;
@@ -108,25 +138,22 @@
     }
 
     /* 3D Showcase Grid */
-/* Evenly Balanced 2x2 Showcase Grid */
-.showcase-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  gap: 24px;
-  width: 90%;
-  max-width: 800px;
-  margin: 20px auto 40px auto;
-  justify-content: center;
-}
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 24px;
+      width: 90%;
+      max-width: 800px;
+      margin: 20px auto 40px auto;
+      justify-content: center;
+    }
 
-/* Mobile responsive fallback so single screen phones stay neat */
-@media (max-width: 600px) {
-  .showcase-grid {
-    grid-template-columns: 1fr;
-    max-width: 360px;
-  }
-}
-    
+    @media (max-width: 600px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+        max-width: 360px;
+      }
+    }
 
     .card {
       background: var(--panel-bg);
@@ -188,10 +215,25 @@
 </head>
 <body>
 
-  <!-- INTRO SECTION -->
-  <div id="intro-section" class="title-container" style="margin-top: 100px;">
+  <!-- INTRO SECTION WITH STORY LORE -->
+  <div id="intro-section" class="title-container" style="margin-top: 40px; width: 100%; display: flex; flex-direction: column; align-items: center;">
     <h1 class="fancy-title">SNAIL RESCUE</h1>
     <p class="subtitle">A Cosmic Mission Through the Neon Labyrinth</p>
+
+    <!-- Story Lore Prologue Card -->
+    <div class="story-box">
+      <h2>MISSION BRIEFING: THE SHEDDING OF THE STARS</h2>
+      <p>
+        For eons, the Galaxy Snails journeyed across the cosmos, gathering experiences and energy. Each year, they return to their ancestral home planet to perform a sacred biological ritual: releasing their life's stories from their shells. Much like coral carving sand, their histories scatter into the sky as glowing "stars"—a living library of their journeys.
+      </p>
+      <p>
+        Upon returning this cycle, however, they discovered tragedy. Humanity has colonized the planet, paving over the sacred grounds and retrofitting the architecture into a corporate power grid. Worse yet, humans discovered that the young snail hatchlings emit an intense, pure energy source, and are now holding the baby snails captive to use them as living power-cell batteries for their mechanized suits.
+      </p>
+      <p style="margin-bottom: 0;">
+        Equipped with stealth and determination, you are an Astral Knight of the Cosmic Shell. Infiltrate their high-security sprawl, avoid their patrolling guards, dodge the freezing tones of the Neon Liberty Bell, and rescue every baby to restore balance to your world.
+      </p>
+    </div>
+
     <div class="btn-container">
       <button class="btn btn-primary" onclick="skipIntro()">Enter Main Base</button>
     </div>
@@ -208,7 +250,7 @@
     <div class="btn-container">
       <button id="start-level-btn" class="btn btn-primary">Start Level 1</button>
       <button class="btn btn-secondary" onclick="goToHomeBase()">Nursery / Home Base</button>
- </div>
+    </div>
 
     <!-- Interactive 3D Model Showcase -->
     <div class="showcase-grid">
@@ -218,7 +260,7 @@
         <div id="canvas-player" class="canvas-box"></div>
         <div class="card-title">Astral Knight</div>
         <div class="card-role role-hero">PLAYER CHARACTER</div>
-        <div class="card-desc">Navigate the maze using the touch joystick or WASD keys. Avoid hazards and reach all stranded babies.</div>
+        <div class="card-desc">Navigate the maze using touch controls or keys. Avoid hazards and rescue all stranded baby snails.</div>
       </div>
 
       <!-- BABY SNAIL -->
@@ -234,7 +276,7 @@
         <div id="canvas-guard" class="canvas-box"></div>
         <div class="card-title">Nebula Vanguard</div>
         <div class="card-role role-hazard">PATROL ENEMY</div>
-        <div class="card-desc">Patrols the corridors and fires red laser blasts when in line of sight. Contact or blasts deplete health.</div>
+        <div class="card-desc">Patrols corridors and fires laser blasts when in direct line of sight. Contact or blasts deplete health.</div>
       </div>
 
       <!-- LIBERTY BELL -->
@@ -269,7 +311,7 @@
     }
 
     startBtn.addEventListener('click', () => {
-      // Dynamic routing to Level_X.html (matching exact file naming)
+      // Dynamic routing to Level_1.html (or saved level)
       window.location.href = `Level_${currentLevel}.html`;
     });
 
@@ -339,7 +381,6 @@
         },
         undefined,
         () => {
-          // Geometry Fallbacks if models fail to load
           const fallbackMat = new THREE.MeshStandardMaterial({ color: glowColor, wireframe: true });
           const fallbackMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), fallbackMat);
           fallbackMesh.position.y = 0.5;
