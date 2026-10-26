@@ -507,18 +507,20 @@
                     guardGroup.add(mesh);
                 });
 
-                const toCenter = new THREE.Vector3(0, 0, 0).sub(guardGroup.position).normalize();
+                const randomAngle = Math.random() * Math.PI * 2;
+                const direction = new THREE.Vector3(Math.sin(randomAngle), 0, Math.cos(randomAngle)).normalize();
 
                 guards.push({
                     mesh: guardGroup,
-                    direction: toCenter,
+                    direction: direction,
                     lastShot: 0,
                     state: 'PATROL',
                     lostSightTimer: 0
                 });
             });
         }
-function bindDPad() {
+
+        function bindDPad() {
             const btnMap = { 'btn-up': 'up', 'btn-down': 'down', 'btn-left': 'left', 'btn-right': 'right' };
 
             Object.keys(btnMap).forEach(id => {
@@ -733,7 +735,7 @@ function bindDPad() {
                 }
             }
 
-            // --- SMART ROOMBA BUMP-AND-TURN (FIXED UNSTICK METHOD) ---
+            // --- SMART ROOMBA BUMP-AND-TURN (CORNER REVERSE FIX) ---
             guards.forEach(guard => {
                 const canSeePlayer = checkGuardLineOfSight(guard);
 
@@ -773,13 +775,13 @@ function bindDPad() {
                     if (checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) hitWall = true;
 
                     if (hitWall) {
-                        // FIX: Use addScaledVector with negative scale to safely step backward out of walls
+                        // Step back out of the wall
                         guard.mesh.position.addScaledVector(guard.direction, -GUARD_PATROL_SPEED * delta * 2);
 
-                        const toCenter = new THREE.Vector3(0, 0, 0).sub(guard.mesh.position).normalize();
-                        const randomSpread = (Math.random() - 0.5) * (Math.PI * 0.8);
-                        
-                        guard.direction.copy(toCenter).applyAxisAngle(new THREE.Vector3(0, 1, 0), randomSpread);
+                        // Reverse direction and pick a wide escape turn angle to avoid dead-ends
+                        guard.direction.negate();
+                        const escapeTurn = (Math.random() - 0.5) * Math.PI; 
+                        guard.direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), escapeTurn);
                         guard.direction.y = 0;
                         guard.direction.normalize();
                     } else {
