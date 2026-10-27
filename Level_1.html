@@ -388,7 +388,7 @@
             baseLight.position.set(0, 1.5, 0);
             homeBaseGroup.add(baseLight);
 
-            gltfLoader.load(ASSETS.baseModel, (gltf) => {
+        gltfLoader.load(ASSETS.baseModel, (gltf) => {
                 const model = gltf.scene;
                 const box = new THREE.Box3().setFromObject(model);
                 model.position.y = -box.min.y;
@@ -481,37 +481,43 @@
 
         function spawnGuards() {
             const guardConfigs = [
-                { waypoints: [new THREE.Vector3(-2.8, 0.5, -11.2), new THREE.Vector3(8.4, 0.5, -11.2)] },
-                { waypoints: [new THREE.Vector3(11.2, 0.5, -5.6), new THREE.Vector3(11.2, 0.5, 5.6)] },
-                { waypoints: [new THREE.Vector3(-11.2, 0.5, 2.8), new THREE.Vector3(-2.8, 0.5, 2.8)] }
+                { start: { x: -2.8, z: -11.2 }, min: -5.0, max: 8.0, axis: 'x' },
+                { start: { x: 11.2, z: -5.6 }, min: -6.0, max: 6.0, axis: 'z' },
+                { start: { x: -11.2, z: 2.8 }, min: -11.2, max: -2.8, axis: 'x' }
             ];
 
             guardConfigs.forEach(cfg => {
                 const guardGroup = new THREE.Group();
-                const startPos = cfg.waypoints[0];
-                guardGroup.position.copy(startPos);
+                guardGroup.position.set(cfg.start.x, 0.5, cfg.start.z);
                 scene.add(guardGroup);
 
+                // INSTANT VISIBLE MESH (Guaranteed to show up immediately without waiting for GLB load)
+                const mesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x550000, roughness: 0.3 })
+                );
+                mesh.position.y = 0.7;
+                guardGroup.add(mesh);
+
+                // Optional: Attempt to load the GLB model on top if available
                 gltfLoader.load(ASSETS.guardModel, (gltf) => {
                     const model = gltf.scene;
                     const box = new THREE.Box3().setFromObject(model);
                     model.position.y = -box.min.y;
                     model.scale.set(0.65, 0.65, 0.65);
                     guardGroup.add(model);
+                    // Remove the fallback cylinder if GLB loaded successfully
+                    guardGroup.remove(mesh);
                 }, undefined, () => {
-                    const mesh = new THREE.Mesh(
-                        new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8),
-                        new THREE.MeshStandardMaterial({ color: 0xff3300 })
-                    );
-                    mesh.position.y = 0.7;
-                    guardGroup.add(mesh);
+                    // Keeps the fallback cylinder if GLB fails
                 });
 
                 guards.push({
                     mesh: guardGroup,
-                    waypoints: cfg.waypoints,
-                    currentWaypointIdx: 0,
-                    patrolDirection: 1,
+                    minBound: cfg.min,
+                    maxBound: cfg.max,
+                    axis: cfg.axis,
+                    direction: 1,
                     lastShot: 0,
                     state: 'PATROL',
                     lostSightTimer: 0
@@ -543,7 +549,7 @@
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
                 if (['d','ArrowRight'].includes(e.key)) moveFlags.right = true;
             });
-    window.addEventListener('keyup', e => {
+            window.addEventListener('keyup', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = false;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = false;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = false;
@@ -585,24 +591,6 @@
                 }
             }
             return true;
-        }
-
-        function checkGuardLineOfSight(guard) {
-            if (!snailGroup) return false;
-
-            const guardPos = guard.mesh.position;
-            const playerPos = snailGroup.position;
-            
-            const dist = guardPos.distanceTo(playerPos);
-            if (dist > 10) return false;
-
-            const guardDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), guard.mesh.rotation.y);
-            const toPlayerDir = new THREE.Vector3().subVectors(playerPos, guardPos).normalize();
-
-            const angle = guardDir.angleTo(toPlayerDir);
-            if (angle > Math.PI / 3) return false;
-
-            return checkGridLineOfSight(guardPos, playerPos);
         }
 
         function shootLaser(guardPos) {
@@ -794,29 +782,16 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    const targetWaypoint = guard.waypoints[guard.currentWaypointIdx];
-                    const dir = new THREE.Vector3().subVectors(targetWaypoint, guard.mesh.position);
-                    dir.y = 0;
-                    const distToWaypoint = dir.length();
-
-                    if (distToWaypoint < 0.4) {
-                        guard.currentWaypointIdx += guard.patrolDirection;
-                        if (guard.currentWaypointIdx >= guard.waypoints.length) {
-                            guard.patrolDirection = -1;
-                            guard.currentWaypointIdx = guard.waypoints.length - 2;
-                        } else if (guard.currentWaypointIdx < 0) {
-                            guard.patrolDirection = 1;
-                            guard.currentWaypointIdx = 1;
-                        }
+                    if (guard.axis === 'x') {
+                        guard.mesh.position.x += GUARD_PATROL_SPEED * guard.direction * delta;
+                        if (guard.mesh.position.x > guard.maxBound) { guard.direction = -1; }
+                        else if (guard.mesh.position.x < guard.minBound) { guard.direction = 1; }
+                        guard.mesh.rotation.y = (guard.direction > 0) ? Math.PI / 2 : -Math.PI / 2;
                     } else {
-                        dir.normalize();
-                        const nextX = guard.mesh.position.x + dir.x * GUARD_PATROL_SPEED * delta;
-                        const nextZ = guard.mesh.position.z + dir.z * GUARD_PATROL_SPEED * delta;
-
-                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) guard.mesh.position.x = nextX;
-                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) guard.mesh.position.z = nextZ;
-
-                        guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+                        guard.mesh.position.z += GUARD_PATROL_SPEED * guard.direction * delta;
+                        if (guard.mesh.position.z > guard.maxBound) { guard.direction = -1; }
+                        else if (guard.mesh.position.z < guard.minBound) { guard.direction = 1; }
+                        guard.mesh.rotation.y = (guard.direction > 0) ? 0 : Math.PI;
                     }
                 }
 
