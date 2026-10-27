@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Snail Rescue - Level 3 (Waypoint Patrol AI)</title>
+    <title>Stellapods - Level 1</title>
     <style>
         body {
             margin: 0;
@@ -214,7 +214,7 @@
     <div id="ui-layer">
         <div id="top-hud">
             <div class="hud-panel">
-                <div id="title">SNAIL RESCUE - LEVEL 3</div>
+                <div id="title">STELLAPODS - LEVEL 1</div>
                 <div>Health:</div>
                 <div id="health-bar-container">
                     <div id="health-bar-fill"></div>
@@ -240,7 +240,7 @@
     <div id="game-over-modal">
         <h2 id="modal-title" style="margin:0; color:#00ffcc;">MISSION COMPLETE!</h2>
         <div id="star-container" class="star-rating">★ ★ ★</div>
-        <p id="modal-msg">You safely returned all baby snails home!</p>
+        <p id="modal-msg">You safely returned all baby Stellapods home!</p>
         <button id="btn-action" onclick="handleModalAction()">NEXT LEVEL</button>
     </div>
 
@@ -543,7 +543,7 @@
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
                 if (['d','ArrowRight'].includes(e.key)) moveFlags.right = true;
             });
-            window.addEventListener('keyup', e => {
+    window.addEventListener('keyup', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = false;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = false;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = false;
@@ -764,7 +764,7 @@
             }
 
             guards.forEach(guard => {
-                const canSeePlayer = checkGuardLineOfSight(guard);
+                const canSeePlayer = checkGridLineOfSight(guard.mesh.position, snailGroup.position);
 
                 if (canSeePlayer) {
                     guard.state = 'CHASE';
@@ -906,7 +906,7 @@
 
         function handleModalAction() {
             if (levelWon) {
-                window.location.href = 'level2.html';
+                window.location.href = 'Level_2.html';
             } else {
                 location.reload();
             }
@@ -924,7 +924,7 @@
             if (isWin) {
                 title.innerText = "LEVEL COMPLETE!";
                 title.style.color = "#00ffcc";
-                msg.innerText = "You navigated the complex maze and rescued all baby snails!";
+                msg.innerText = "You navigated the maze and rescued all baby Stellapods!";
                 actionBtn.innerText = "NEXT LEVEL (LEVEL 2)";
 
                 let stars = 1;
