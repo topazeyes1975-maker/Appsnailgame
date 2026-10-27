@@ -255,7 +255,7 @@
             baseModel: 'home_base_model.glb'
         };
 
-        const MAZE_SIZE = 17; // Larger maze for Level 2
+        const MAZE_SIZE = 17;
         const CELL_SIZE = 2.8; 
         
         const SPEED = 8.0;
@@ -268,7 +268,7 @@
         let bellVelocity = { x: 3.2, z: 2.5 };
         let isFrozen = false, freezeTimer = 0;
         let homeCount = 0;
-        const TOTAL_BABIES = 4; // 4 babies for Level 2
+        const TOTAL_BABIES = 4;
         let playerHealth = 100;
         let isGameOver = false;
         let levelWon = false;
@@ -276,13 +276,14 @@
         let moveFlags = { up: false, down: false, left: false, right: false };
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
 
-        const homeBasePos = { x: -22.4, z: 22.4 };
+        // Safe open floor tile in the lower section of the 17x17 maze grid (Row 15, Col 1)
+        const homeBasePos = { x: (1 * CELL_SIZE) - ((MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2), z: (15 * CELL_SIZE) - ((MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2) };
         const tempPlayerBox = new THREE.Box3();
 
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
-        // 17x17 Distinct Maze Grid for Level 2
+        // 17x17 Distinct Maze Grid for Level 2 (Row 15, Col 1 is `0` open floor)
         const mazeGrid = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
@@ -409,7 +410,7 @@
 
         function createPlayer() {
             snailGroup = new THREE.Group();
-            snailGroup.position.set(homeBasePos.x + 1.0, 0.4, homeBasePos.z + 1.0);
+            snailGroup.position.set(homeBasePos.x, 0.4, homeBasePos.z);
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -452,7 +453,6 @@
         }
 
         function spawnBabies() {
-            // 4 baby positions across the expanded Level 2 maze
             const positions = [
                 { x: 19.6, z: -19.6 }, 
                 { x: 19.6, z: 19.6 },  
@@ -485,7 +485,6 @@
         }
 
         function spawnGuards() {
-            // 4 guards patrolling across Level 2
             const guardConfigs = [
                 { start: { x: -2.8, z: -14.0 }, min: -16.0, max: 16.0, axis: 'x' },
                 { start: { x: 14.0, z: -5.6 }, min: -14.0, max: 14.0, axis: 'z' },
@@ -542,7 +541,7 @@
                 btn.addEventListener('touchcancel', stopAction, { passive: false });
                 btn.addEventListener('mousedown', startAction);
                 btn.addEventListener('mouseup', stopAction);
-             btn.addEventListener('mouseleave', stopAction);
+                btn.addEventListener('mouseleave', stopAction);
             });
 
             window.addEventListener('keydown', e => {
@@ -627,7 +626,8 @@
             const ctx = gpsCanvas.getContext('2d');
             ctx.clearRect(0, 0, 110, 110);
 
-            const mapScale = 90 / (MAZE_SIZE * CELL_SIZE); 
+            // Adjusted mapScale so the entire 17x17 grid fits comfortably inside the radar circle
+            const mapScale = 78 / (MAZE_SIZE * CELL_SIZE); 
             const centerX = 55, centerY = 55;
 
             ctx.fillStyle = '#112233';
