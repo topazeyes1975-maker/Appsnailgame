@@ -265,7 +265,7 @@
 
         let scene, camera, renderer, clock;
         let snailGroup, bellGroup, homeBaseGroup;
-        let bellVelocity = { x: 3.2, z: 2.5 };
+        let bellVelocity = { x: 2.8, z: 2.2 };
         let isFrozen = false, freezeTimer = 0;
         let homeCount = 0;
         const TOTAL_BABIES = 4;
@@ -276,7 +276,6 @@
         let moveFlags = { up: false, down: false, left: false, right: false };
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
 
-        // Safe open floor tile at Row 15, Col 1
         const gridOffset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
         const homeBasePos = { 
             x: (1 * CELL_SIZE) - gridOffset, 
@@ -287,7 +286,6 @@
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
-        // 17x17 Distinct Maze Grid for Level 2
         const mazeGrid = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
@@ -435,7 +433,8 @@
 
         function spawnLibertyBell() {
             bellGroup = new THREE.Group();
-            bellGroup.position.set(0, 1.2, 0);
+            // Start bell in a guaranteed open hallway tile (Row 3, Col 3)
+            bellGroup.position.set((3 * CELL_SIZE) - gridOffset, 1.2, (3 * CELL_SIZE) - gridOffset);
             scene.add(bellGroup);
 
             const bellLight = new THREE.PointLight(0x00ffff, 2, 8);
@@ -456,12 +455,11 @@
         }
 
         function spawnBabies() {
-            // Guaranteed open hallway grid positions (Row, Col) for Level 2
             const babyGridCoords = [
-                { r: 1, c: 3 },   // Upper corridor
-                { r: 15, c: 15 }, // Lower-right corridor
-                { r: 7, c: 1 },   // Mid-left corridor
-                { r: 7, c: 15 }   // Mid-right corridor
+                { r: 1, c: 3 },   
+                { r: 15, c: 15 }, 
+                { r: 7, c: 1 },   
+                { r: 7, c: 15 }   
             ];
 
             babyGridCoords.forEach((coord, idx) => {
@@ -534,7 +532,7 @@
             });
         }
 
-         function bindDPad() {
+        function bindDPad() {
             const btnMap = { 'btn-up': 'up', 'btn-down': 'down', 'btn-left': 'left', 'btn-right': 'right' };
 
             Object.keys(btnMap).forEach(id => {
@@ -731,16 +729,24 @@
                 }
             }
 
+            // --- BULLETPROOF LIBERTY BELL MOVEMENT & BOUNCE ---
             if (bellGroup) {
                 bellGroup.rotation.y += 1.2 * delta;
+                
                 const nextBellX = bellGroup.position.x + bellVelocity.x * delta;
                 const nextBellZ = bellGroup.position.z + bellVelocity.z * delta;
 
-                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
-                else bellGroup.position.x = nextBellX;
+                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z }, 0.4)) {
+                    bellVelocity.x *= -1;
+                } else {
+                    bellGroup.position.x = nextBellX;
+                }
 
-                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
-                else bellGroup.position.z = nextBellZ;
+                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ }, 0.4)) {
+                    bellVelocity.z *= -1;
+                } else {
+                    bellGroup.position.z = nextBellZ;
+                }
 
                 if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) {
                     isFrozen = true;
@@ -780,7 +786,6 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    // Patrol strictly along open corridors with wall collision checks
                     if (guard.axis === 'x') {
                         const nextX = guard.mesh.position.x + GUARD_PATROL_SPEED * guard.direction * delta;
                         const testPos = { x: nextX, z: guard.mesh.position.z };
