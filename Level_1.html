@@ -402,47 +402,53 @@
         }
 
         function spawnHomeBase() {
-            homeBaseGroup = new THREE.Group();
-            homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
-            scene.add(homeBaseGroup);
+    homeBaseGroup = new THREE.Group();
+    homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
+    scene.add(homeBaseGroup);
 
-            // Glowing beacon light so the mothership stands out clearly
-            const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 10);
-            baseLight.position.set(0, 2.5, 0);
-            homeBaseGroup.add(baseLight);
+    // Glowing beacon light so the mothership stands out clearly
+    const baseLight = new THREE.PointLight(0x00ffcc, 5.0, 14);
+    baseLight.position.set(0, 3.5, 0);
+    homeBaseGroup.add(baseLight);
 
-            // Glowing landing ring underneath the ship
-            const ringMesh = new THREE.Mesh(
-                new THREE.RingGeometry(1.1, 1.45, 24),
-                new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
-            );
-            ringMesh.rotation.x = -Math.PI / 2;
-            ringMesh.position.y = 0.04;
-            homeBaseGroup.add(ringMesh);
+    // Glowing landing ring underneath the ship
+    const ringMesh = new THREE.Mesh(
+        new THREE.RingGeometry(2.2, 2.7, 24),
+        new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
+    );
+    ringMesh.rotation.x = -Math.PI / 2;
+    ringMesh.position.y = 0.04;
+    homeBaseGroup.add(ringMesh);
 
-            gltfLoader.load(ASSETS.baseModel, (gltf) => {
-                const model = gltf.scene;
-                const box = new THREE.Box3().setFromObject(model);
-                model.position.y = -box.min.y;
-                model.scale.set(1.2, 1.2, 1.2);
-                homeBaseGroup.add(model);
-            }, undefined, () => {
-                // Fallback 3D ship dome if GLB fails to load
-                const shipHull = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.8, 1.5, 0.9, 16),
-                    new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
-                );
-                shipHull.position.y = 0.45;
-                homeBaseGroup.add(shipHull);
+    gltfLoader.load(ASSETS.baseModel, (gltf) => {
+        const model = gltf.scene;
 
-                const canopy = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.7, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-                    new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5, transparent: true, opacity: 0.75 })
-                );
-                canopy.position.y = 0.85;
-                homeBaseGroup.add(canopy);
-            });
-        }
+        // 4x bigger than 1.2 -> 4.8
+        model.rotation.x = Math.PI / 2;
+        model.scale.set(4.8, 4.8, 4.8);
+        model.updateMatrixWorld(true);
+
+        const box = new THREE.Box3().setFromObject(model);
+        model.position.y = -box.min.y;
+        homeBaseGroup.add(model);
+    }, undefined, () => {
+        // Fallback 3D ship dome if GLB fails to load
+        const shipHull = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.6, 2.6, 1.4, 16),
+            new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
+        );
+        shipHull.position.y = 0.7;
+        homeBaseGroup.add(shipHull);
+
+        const canopy = new THREE.Mesh(
+            new THREE.SphereGeometry(1.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5, transparent: true, opacity: 0.75 })
+        );
+        canopy.position.y = 1.35;
+        homeBaseGroup.add(canopy);
+    });
+}
+
 
         function createPlayer() {
             snailGroup = new THREE.Group();
