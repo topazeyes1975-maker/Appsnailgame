@@ -406,14 +406,12 @@
     homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
     scene.add(homeBaseGroup);
 
-    // Glowing beacon light so the mothership stands out clearly
-    const baseLight = new THREE.PointLight(0x00ffcc, 5.0, 14);
-    baseLight.position.set(0, 3.5, 0);
+    const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 10);
+    baseLight.position.set(0, 2.5, 0);
     homeBaseGroup.add(baseLight);
 
-    // Glowing landing ring underneath the ship
     const ringMesh = new THREE.Mesh(
-        new THREE.RingGeometry(2.2, 2.7, 24),
+        new THREE.RingGeometry(1.1, 1.45, 24),
         new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
     );
     ringMesh.rotation.x = -Math.PI / 2;
@@ -423,33 +421,56 @@
     gltfLoader.load(ASSETS.baseModel, (gltf) => {
         const model = gltf.scene;
 
-        // 4x bigger than 1.2 -> 4.8
+        // --- ROTATION FIX ---
+        // Orient upright. Since the ship is a spiral shell, we might need to
+        // adjust which axis is up. Try Math.PI / 2 on X first. If it's still
+        // lying on its side, try Z instead (-Math.PI / 2 or Math.PI / 2).
         model.rotation.x = Math.PI / 2;
-        model.scale.set(4.8, 4.8, 4.8);
+
+        // --- SCALE FIX ---
+        // Measure natural size and scale to ~2.2 world units wide
+        // so it fits inside the 2.8 corridor without clipping walls.
+        const rawBox = new THREE.Box3().setFromObject(model);
+        const rawSize = new THREE.Vector3();
+        rawBox.getSize(rawSize);
+        const maxDim = Math.max(rawSize.x, rawSize.y, rawSize.z, 0.001);
+        const targetSize = 2.2;
+        const autoScale = targetSize / maxDim;
+
+        model.scale.setScalar(autoScale);
         model.updateMatrixWorld(true);
 
-        const box = new THREE.Box3().setFromObject(model);
-        model.position.y = -box.min.y;
+        // Get final dimensions after scaling.
+        const finalBox = new THREE.Box3().setFromObject(model);
+        const finalSize = new THREE.Vector3();
+        finalBox.getSize(finalSize);
+
+        // --- POSITION FIX ---
+        // Shift the whole model so that its center-height (the large vortex sphere)
+        // aligns with the floor. This makes the shell frame the player
+        // instead of just sitting on top of a base.
+        model.position.y = -finalSize.y / 2;
+
         homeBaseGroup.add(model);
+
     }, undefined, () => {
-        // Fallback 3D ship dome if GLB fails to load
+        // Fallback remains the same if GLB fails
         const shipHull = new THREE.Mesh(
-            new THREE.CylinderGeometry(1.6, 2.6, 1.4, 16),
+            new THREE.CylinderGeometry(0.8, 1.5, 0.9, 16),
             new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
         );
-        shipHull.position.y = 0.7;
+        shipHull.position.y = 0.45;
         homeBaseGroup.add(shipHull);
 
         const canopy = new THREE.Mesh(
-            new THREE.SphereGeometry(1.3, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.SphereGeometry(0.7, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
             new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5, transparent: true, opacity: 0.75 })
         );
-        canopy.position.y = 1.35;
+        canopy.position.y = 0.85;
         homeBaseGroup.add(canopy);
     });
-}
-
-
+        }
+        
         function createPlayer() {
             snailGroup = new THREE.Group();
             // Spawn right inside the 3D mothership so the player emerges out into the maze
