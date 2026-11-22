@@ -240,7 +240,7 @@
     <div id="game-over-modal">
         <h2 id="modal-title" style="margin:0; color:#00ffcc;">MISSION COMPLETE!</h2>
         <div id="star-container" class="star-rating">★ ★ ★</div>
-        <p id="modal-msg">You safely returned all baby Stellapods home!</p>
+        <p id="modal-msg">You safely returned all baby Stellapods to the mothership!</p>
         <button id="btn-action" onclick="handleModalAction()">NEXT LEVEL</button>
     </div>
 
@@ -277,6 +277,7 @@
         let moveFlags = { up: false, down: false, left: false, right: false };
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
 
+        // Row 13, Col 1 open corner tile for the 3D Mothership
         const homeBasePos = { x: -16.8, z: 16.8 };
         const tempPlayerBox = new THREE.Box3();
 
@@ -405,29 +406,49 @@
             homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
             scene.add(homeBaseGroup);
 
-            const baseLight = new THREE.PointLight(0x00ffcc, 2.5, 6);
-            baseLight.position.set(0, 1.5, 0);
+            // Glowing beacon light so the mothership stands out clearly
+            const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 10);
+            baseLight.position.set(0, 2.5, 0);
             homeBaseGroup.add(baseLight);
+
+            // Glowing landing ring underneath the ship
+            const ringMesh = new THREE.Mesh(
+                new THREE.RingGeometry(1.1, 1.45, 24),
+                new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
+            );
+            ringMesh.rotation.x = -Math.PI / 2;
+            ringMesh.position.y = 0.04;
+            homeBaseGroup.add(ringMesh);
 
             gltfLoader.load(ASSETS.baseModel, (gltf) => {
                 const model = gltf.scene;
                 const box = new THREE.Box3().setFromObject(model);
                 model.position.y = -box.min.y;
-                model.scale.set(0.7, 0.7, 0.7);
+                model.scale.set(1.2, 1.2, 1.2);
                 homeBaseGroup.add(model);
             }, undefined, () => {
-                const padMesh = new THREE.Mesh(
-                    new THREE.CylinderGeometry(1.4, 1.6, 0.1, 16),
-                    new THREE.MeshStandardMaterial({ color: 0x003344, emissive: 0x00ffff, roughness: 0.2 })
+                // Fallback 3D ship dome if GLB fails to load
+                const shipHull = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.8, 1.5, 0.9, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
                 );
-                padMesh.position.y = 0.05;
-                homeBaseGroup.add(padMesh);
+                shipHull.position.y = 0.45;
+                homeBaseGroup.add(shipHull);
+
+                const canopy = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.7, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+                    new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5, transparent: true, opacity: 0.75 })
+                );
+                canopy.position.y = 0.85;
+                homeBaseGroup.add(canopy);
             });
         }
 
         function createPlayer() {
             snailGroup = new THREE.Group();
-            snailGroup.position.set(homeBasePos.x + 1.0, 0.4, homeBasePos.z + 1.0);
+            // Spawn right inside the 3D mothership so the player emerges out into the maze
+            snailGroup.position.set(homeBasePos.x, 0.4, homeBasePos.z);
+            snailGroup.rotation.y = Math.PI; // Facing north up the open corridor
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -510,7 +531,6 @@
             const openDirs = dirs.filter(d => isOpenTile(guard.gridR + d.dr, guard.gridC + d.dc));
             if (openDirs.length === 0) return;
 
-            // Prefer continuing or turning into open tiles rather than immediately reversing unless dead-end
             const nonReverse = openDirs.filter(d => !(d.dr === -guard.lastDr && d.dc === -guard.lastDc));
             const pool = nonReverse.length > 0 ? nonReverse : openDirs;
             const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -553,7 +573,8 @@
                     guardGroup.add(model);
                     guardGroup.remove(mesh);
                 }, undefined, () => {});
-                   const guardObj = {
+
+                const guardObj = {
                     mesh: guardGroup,
                     gridR: start.r,
                     gridC: start.c,
@@ -620,19 +641,11 @@
 
             while (true) {
                 if (cx < 0 || cx >= MAZE_SIZE || cz < 0 || cz >= MAZE_SIZE) return false;
-                if (mazeGrid[cz][cx] === 1) {
-                    return false;
-                }
+                if (mazeGrid[cz][cx] === 1) return false;
                 if (cx === x1 && cz === z1) break;
                 let e2 = 2 * err;
-                if (e2 > -dz) {
-                    err -= dz;
-                    cx += sx;
-                }
-                if (e2 < dx) {
-                    err += dx;
-                    cz += sz;
-                }
+                if (e2 > -dz) { err -= dz; cx += sx; }
+                if (e2 < dx) { err += dx; cz += sz; }
             }
             return true;
         }
@@ -691,10 +704,11 @@
                 }
             }
 
+            // Mothership Home Base on GPS
             const hx = homeBasePos.x * mapScale + centerX;
             const hz = homeBasePos.z * mapScale + centerY;
             ctx.fillStyle = '#00ffcc';
-            ctx.fillRect(hx - 3.5, hz - 3.5, 7, 7);
+            ctx.fillRect(hx - 4.5, hz - 4.5, 9, 9);
 
             ctx.fillStyle = '#ffff00';
             babies.forEach(b => {
@@ -912,19 +926,26 @@
                     const followSpeed = 6.0 * delta;
                     baby.mesh.position.x += (targetX - baby.mesh.position.x) * followSpeed;
                     baby.mesh.position.z += (targetZ - baby.mesh.position.z) * followSpeed;
+                    baby.mesh.position.y = 0.3;
 
+                    // Babies enter the 3D mothership when returned to homeBaseGroup
                     const distToBase = baby.mesh.position.distanceTo(homeBaseGroup.position);
-                    if (distToBase < 1.6) {
+                    const playerAtBase = snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.2;
+
+                    if (distToBase < 1.8 || playerAtBase) {
                         baby.following = false;
                         baby.returnedHome = true;
                         scene.remove(baby.mesh);
                         homeCount++;
                         document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`;
-
-                        if (homeCount === TOTAL_BABIES) endGame(true);
                     }
                 }
             });
+
+            // Win triggers when all 3 babies are safely inside the mothership AND the player returns into the ship
+            if (homeCount === TOTAL_BABIES && snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.0) {
+                endGame(true);
+            }
 
             updateGPS();
             renderer.render(scene, camera);
@@ -950,7 +971,7 @@
             if (isWin) {
                 title.innerText = "LEVEL COMPLETE!";
                 title.style.color = "#00ffcc";
-                msg.innerText = "You navigated the maze and rescued all baby Stellapods!";
+                msg.innerText = "You returned to the mothership with all baby Stellapods!";
                 actionBtn.innerText = "NEXT LEVEL (LEVEL 2)";
 
                 let stars = 1;
@@ -984,6 +1005,3 @@
     </script>
 </body>
 </html>
-
-                const guardObj = {
-    
