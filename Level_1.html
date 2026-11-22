@@ -301,6 +301,27 @@
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
 
+        function gridToWorld(r, c) {
+            return {
+                x: c * CELL_SIZE - gridOffset,
+                z: r * CELL_SIZE - gridOffset
+            };
+        }
+
+        function worldToGrid(x, z) {
+            const c = Math.round((x + gridOffset) / CELL_SIZE);
+            const r = Math.round((z + gridOffset) / CELL_SIZE);
+            return {
+                r: Math.max(0, Math.min(MAZE_SIZE - 1, r)),
+                c: Math.max(0, Math.min(MAZE_SIZE - 1, c))
+            };
+        }
+
+        function isOpenTile(r, c) {
+            if (r < 0 || r >= MAZE_SIZE || c < 0 || c >= MAZE_SIZE) return false;
+            return mazeGrid[r][c] === 0;
+        }
+
         function init() {
             const container = document.getElementById('canvas-container');
 
@@ -479,16 +500,42 @@
             });
         }
 
+        function pickNextPatrolTarget(guard) {
+            const dirs = [
+                { dr: -1, dc: 0, rot: Math.PI },
+                { dr: 1, dc: 0, rot: 0 },
+                { dr: 0, dc: -1, rot: -Math.PI / 2 },
+                { dr: 0, dc: 1, rot: Math.PI / 2 }
+            ];
+            const openDirs = dirs.filter(d => isOpenTile(guard.gridR + d.dr, guard.gridC + d.dc));
+            if (openDirs.length === 0) return;
+
+            // Prefer continuing or turning into open tiles rather than immediately reversing unless dead-end
+            const nonReverse = openDirs.filter(d => !(d.dr === -guard.lastDr && d.dc === -guard.lastDc));
+            const pool = nonReverse.length > 0 ? nonReverse : openDirs;
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+            const nextR = guard.gridR + chosen.dr;
+            const nextC = guard.gridC + chosen.dc;
+            guard.targetPos = gridToWorld(nextR, nextC);
+            guard.nextR = nextR;
+            guard.nextC = nextC;
+            guard.lastDr = chosen.dr;
+            guard.lastDc = chosen.dc;
+            guard.mesh.rotation.y = chosen.rot;
+        }
+
         function spawnGuards() {
-            const guardConfigs = [
-                { start: { x: -2.8, z: -11.2 }, min: -5.0, max: 8.0, axis: 'x' },
-                { start: { x: 11.2, z: -5.6 }, min: -6.0, max: 6.0, axis: 'z' },
-                { start: { x: -11.2, z: 2.8 }, min: -11.2, max: -2.8, axis: 'x' }
+            const guardStarts = [
+                { r: 3, c: 7 },
+                { r: 5, c: 11 },
+                { r: 7, c: 3 }
             ];
 
-            guardConfigs.forEach(cfg => {
+            guardStarts.forEach(start => {
+                const startWorld = gridToWorld(start.r, start.c);
                 const guardGroup = new THREE.Group();
-                guardGroup.position.set(cfg.start.x, 0.5, cfg.start.z);
+                guardGroup.position.set(startWorld.x, 0.5, startWorld.z);
                 scene.add(guardGroup);
 
                 const mesh = new THREE.Mesh(
@@ -506,17 +553,21 @@
                     guardGroup.add(model);
                     guardGroup.remove(mesh);
                 }, undefined, () => {});
-
-                guards.push({
+                   const guardObj = {
                     mesh: guardGroup,
-                    minBound: cfg.min,
-                    maxBound: cfg.max,
-                    axis: cfg.axis,
-                    direction: 1,
+                    gridR: start.r,
+                    gridC: start.c,
+                    nextR: start.r,
+                    nextC: start.c,
+                    targetPos: { x: startWorld.x, z: startWorld.z },
+                    lastDr: 0,
+                    lastDc: 0,
                     lastShot: 0,
                     state: 'PATROL',
                     lostSightTimer: 0
-                });
+                };
+                pickNextPatrolTarget(guardObj);
+                guards.push(guardObj);
             });
         }
 
@@ -753,19 +804,23 @@
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
                         guard.state = 'PATROL';
+                        const curr = worldToGrid(guard.mesh.position.x, guard.mesh.position.z);
+                        guard.gridR = curr.r;
+                        guard.gridC = curr.c;
+                        pickNextPatrolTarget(guard);
                     }
                 }
 
                 if (guard.state === 'CHASE' && snailGroup) {
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
                     dir.y = 0;
-                    dir.normalize();
+                    if (dir.lengthSq() > 0.0001) dir.normalize();
 
                     const nextX = guard.mesh.position.x + dir.x * GUARD_CHASE_SPEED * delta;
                     const nextZ = guard.mesh.position.z + dir.z * GUARD_CHASE_SPEED * delta;
 
-                    if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) guard.mesh.position.x = nextX;
-                    if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) guard.mesh.position.z = nextZ;
+                    if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.35)) guard.mesh.position.x = nextX;
+                    if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.35)) guard.mesh.position.z = nextZ;
 
                     guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
 
@@ -774,22 +829,20 @@
                         guard.lastShot = now;
                     }
                 } else {
-                    if (guard.axis === 'x') {
-                        const nextX = guard.mesh.position.x + GUARD_PATROL_SPEED * guard.direction * delta;
-                        if (nextX > guard.maxBound || nextX < guard.minBound || checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.4)) {
-                            guard.direction *= -1;
-                        } else {
-                            guard.mesh.position.x = nextX;
-                        }
-                        guard.mesh.rotation.y = (guard.direction > 0) ? Math.PI / 2 : -Math.PI / 2;
+                    const dx = guard.targetPos.x - guard.mesh.position.x;
+                    const dz = guard.targetPos.z - guard.mesh.position.z;
+                    const dist = Math.hypot(dx, dz);
+                    const step = GUARD_PATROL_SPEED * delta;
+
+                    if (dist <= step + 0.02) {
+                        guard.mesh.position.x = guard.targetPos.x;
+                        guard.mesh.position.z = guard.targetPos.z;
+                        guard.gridR = guard.nextR;
+                        guard.gridC = guard.nextC;
+                        pickNextPatrolTarget(guard);
                     } else {
-                        const nextZ = guard.mesh.position.z + GUARD_PATROL_SPEED * guard.direction * delta;
-                        if (nextZ > guard.maxBound || nextZ < guard.minBound || checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.4)) {
-                            guard.direction *= -1;
-                        } else {
-                            guard.mesh.position.z = nextZ;
-                        }
-                        guard.mesh.rotation.y = (guard.direction > 0) ? 0 : Math.PI;
+                        guard.mesh.position.x += (dx / dist) * step;
+                        guard.mesh.position.z += (dz / dist) * step;
                     }
                 }
 
@@ -931,3 +984,6 @@
     </script>
 </body>
 </html>
+
+                const guardObj = {
+    
