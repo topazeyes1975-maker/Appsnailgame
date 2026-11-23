@@ -403,13 +403,15 @@
 
         function spawnHomeBase() {
     homeBaseGroup = new THREE.Group();
-    homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
+    homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z); // Kept slightly above 0 to prevent z-fighting with floor
     scene.add(homeBaseGroup);
 
+    // Glowing beacon light
     const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 10);
     baseLight.position.set(0, 2.5, 0);
     homeBaseGroup.add(baseLight);
 
+    // Glowing landing ring
     const ringMesh = new THREE.Mesh(
         new THREE.RingGeometry(1.1, 1.45, 24),
         new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
@@ -421,35 +423,23 @@
     gltfLoader.load(ASSETS.baseModel, (gltf) => {
         const model = gltf.scene;
 
-        // --- ROTATION FIX ---
-        // Orient upright. Since the ship is a spiral shell, we might need to
-        // adjust which axis is up. Try Math.PI / 2 on X first. If it's still
-        // lying on its side, try Z instead (-Math.PI / 2 or Math.PI / 2).
+        // 1. Rotate first to stand upright (adjust axis/sign if needed)
         model.rotation.x = Math.PI / 2;
 
-        // --- SCALE FIX ---
-        // Measure natural size and scale to ~2.2 world units wide
-        // so it fits inside the 2.8 corridor without clipping walls.
-        const rawBox = new THREE.Box3().setFromObject(model);
-        const rawSize = new THREE.Vector3();
-        rawBox.getSize(rawSize);
-        const maxDim = Math.max(rawSize.x, rawSize.y, rawSize.z, 0.001);
-        const targetSize = 2.2;
-        const autoScale = targetSize / maxDim;
+        // 2. Scale next (using your 4.8 size as requested earlier)
+        model.scale.set(4.8, 4.8, 4.8);
 
-        model.scale.setScalar(autoScale);
+        // 3. CRUCIAL: Update matrices so Box3 can measure accurately
         model.updateMatrixWorld(true);
 
-        // Get final dimensions after scaling.
-        const finalBox = new THREE.Box3().setFromObject(model);
-        const finalSize = new THREE.Vector3();
-        finalBox.getSize(finalSize);
+        // 4. Measure the lowest point of the model's geometry
+        const box = new THREE.Box3().setFromObject(model);
+        const hullHeight = box.max.y - box.min.y;
 
-        // --- POSITION FIX ---
-        // Shift the whole model so that its center-height (the large vortex sphere)
-        // aligns with the floor. This makes the shell frame the player
-        // instead of just sitting on top of a base.
-        model.position.y = -finalSize.y / 4;
+        // 5. POSITION FIX: Shift model up so box.min.y is at floor level (y=0)
+        // Since model is already inside homeBaseGroup (at y=0.05),
+        // we move the model mesh down by its own lowest measured point.
+        model.position.y = -box.min.y;
 
         homeBaseGroup.add(model);
 
@@ -470,6 +460,7 @@
         homeBaseGroup.add(canopy);
     });
         }
+        
         
         function createPlayer() {
             snailGroup = new THREE.Group();
