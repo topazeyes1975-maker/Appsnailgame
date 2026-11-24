@@ -245,6 +245,7 @@
     </div>
 
     <script>
+        // Asset paths
         const ASSETS = {
             wallTex: '1787589407750~2.jpg',
             floorTex: '1785671824766.png',
@@ -255,6 +256,7 @@
             baseModel: 'Meshy_AI_Cosmic_Nautilus_1122112447_texture.glb'
         };
 
+        // Game constants
         const MAZE_SIZE = 15;
         const CELL_SIZE = 2.8;
         const gridOffset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
@@ -263,7 +265,9 @@
         const GUARD_PATROL_SPEED = 2.4;
         const GUARD_CHASE_SPEED = 4.6;
         const ROT_SPEED = 2.5;
+        const GUARD_SIGHT_RANGE = 20; // Added sight range constant
 
+        // Game state variables
         let scene, camera, renderer, clock;
         let snailGroup, bellGroup, homeBaseGroup;
         let bellVelocity = { x: 3.0, z: 2.2 };
@@ -274,16 +278,24 @@
         let isGameOver = false;
         let levelWon = false;
 
+        // Input state
         let moveFlags = { up: false, down: false, left: false, right: false };
+        
+        // Game objects arrays
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
 
-        // Row 13, Col 1 open corner tile for the 3D Mothership
+        // Home base position (Row 13, Col 1)
         const homeBasePos = { x: -16.8, z: 16.8 };
+        
+        // Reusable geometry objects
         const tempPlayerBox = new THREE.Box3();
+        const raycaster = new THREE.Raycaster(); // Added for LOS check
 
+        // Loaders
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
+        // Maze grid (1 = wall, 0 = open)
         const mazeGrid = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -302,6 +314,7 @@
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
 
+        // Utility functions
         function gridToWorld(r, c) {
             return {
                 x: c * CELL_SIZE - gridOffset,
@@ -323,6 +336,7 @@
             return mazeGrid[r][c] === 0;
         }
 
+        // Initialization
         function init() {
             const container = document.getElementById('canvas-container');
 
@@ -368,24 +382,25 @@
             return new THREE.CanvasTexture(canvas);
         }
 
+        // Maze construction
         function buildMaze() {
+            // Floor
             const floorTex = textureLoader.load(ASSETS.floorTex,
                 (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 12); t.needsUpdate = true; },
                 undefined, () => createFallbackTexture('#0f0f2d', '#1a1a40')
             );
-
-            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
+            const floorMat = new THREE.StandardMaterial({ map: floorTex, roughness: 0.5 });
             const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
+            // Walls
             const wallTex = textureLoader.load(ASSETS.wallTex,
                 (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1); t.needsUpdate = true; },
                 undefined, () => createFallbackTexture('#1a233a', '#223355')
             );
-
-            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
+            const wallMat = new THREE.StandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
 
             for (let r = 0; r < MAZE_SIZE; r++) {
@@ -401,72 +416,79 @@
             }
         }
 
+        // Home Base Spawning (Corrected Scale & Position)
         function spawnHomeBase() {
-    homeBaseGroup = new THREE.Group();
-    homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z); // Kept slightly above 0 to prevent z-fighting with floor
-    scene.add(homeBaseGroup);
+            homeBaseGroup = new THREE.Group();
+            scene.add(homeBaseGroup);
 
-    // Glowing beacon light
-    const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 10);
-    baseLight.position.set(0, 2.5, 0);
-    homeBaseGroup.add(baseLight);
+            // Add a soft, glowing beacon light above the base
+            const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 15);
+            baseLight.position.set(0, 4.0, 0);
+            homeBaseGroup.add(baseLight);
 
-    // Glowing landing ring
-    const ringMesh = new THREE.Mesh(
-        new THREE.RingGeometry(1.1, 1.45, 24),
-        new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide })
-    );
-    ringMesh.rotation.x = -Math.PI / 2;
-    ringMesh.position.y = 0.04;
-    homeBaseGroup.add(ringMesh);
+            // Add the "landing pad" glowing ring on the floor
+            const ringMesh = new THREE.Mesh(
+                new THREE.RingGeometry(1.1, 1.45, 24),
+                new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+            );
+            ringMesh.rotation.x = -Math.PI / 2; // Lay it flat on the ground
+            ringMesh.position.y = 0.02; // Slightly above floor
+            homeBaseGroup.add(ringMesh);
 
-    gltfLoader.load(ASSETS.baseModel, (gltf) => {
-        const model = gltf.scene;
+            // Load the 3D Model
+            gltfLoader.load(ASSETS.baseModel, (gltf) => {
+                const model = gltf.scene;
 
-        // 1. Rotate first to stand upright (adjust axis/sign if needed)
-        model.rotation.x = Math.PI / 2;
+                // --- FIX ORIENTATION ---
+                // Rotate to stand upright (engine thrusters pointing down)
+                model.rotation.x = Math.PI / 2;
 
-        // 2. Scale next (using your 4.8 size as requested earlier)
-        model.scale.set(4.8, 4.8, 4.8);
+                // --- FIX SCALE (Set directly to 5.8) ---
+                model.scale.set(5.8, 5.8, 5.8);
 
-        // 3. CRUCIAL: Update matrices so Box3 can measure accurately
-        model.updateMatrixWorld(true);
+                // --- FIX POSITION (Rise up out of floor) ---
+                // IMPORTANT: Update matrices to get accurate world boundaries
+                model.updateMatrixWorld(true);
+                const box = new THREE.Box3().setFromObject(model);
+                // Shift the model *up* so its lowest point sits at y=0
+                model.position.y = -box.min.y;
 
-        // 4. Measure the lowest point of the model's geometry
-        const box = new THREE.Box3().setFromObject(model);
-        const hullHeight = box.max.y - box.min.y;
+                homeBaseGroup.add(model);
+                homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z); // Position the whole group
 
-        // 5. POSITION FIX: Shift model up so box.min.y is at floor level (y=0)
-        // Since model is already inside homeBaseGroup (at y=0.05),
-        // we move the model mesh down by its own lowest measured point.
-        model.position.y = -box.min.y;
+                // Optional: Add a small pulsing animation to the light
+                function animateBase() {
+                    requestAnimationFrame(animateBase);
+                    const time = Date.now() * 0.001;
+                    baseLight.intensity = 3.5 + Math.sin(time) * 0.7;
+                }
+                animateBase();
 
-        homeBaseGroup.add(model);
+            }, undefined, (error) => {
+                console.error('Error loading home base model:', error);
+                // FALLBACK SHAPE: A simple blue cylinder and hemisphere
+                const fallbackHull = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff })
+                );
+                fallbackHull.position.y = 0.25;
+                homeBaseGroup.add(fallbackHull);
 
-    }, undefined, () => {
-        // Fallback remains the same if GLB fails
-        const shipHull = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.8, 1.5, 0.9, 16),
-            new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff, emissiveIntensity: 0.4, roughness: 0.2, metalness: 0.6 })
-        );
-        shipHull.position.y = 0.45;
-        homeBaseGroup.add(shipHull);
-
-        const canopy = new THREE.Mesh(
-            new THREE.SphereGeometry(0.7, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-            new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5, transparent: true, opacity: 0.75 })
-        );
-        canopy.position.y = 0.85;
-        homeBaseGroup.add(canopy);
-    });
+                const fallbackDome = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.0, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+                    new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, transparent: true, opacity: 0.8 })
+                );
+                fallbackDome.position.y = 0.5;
+                homeBaseGroup.add(fallbackDome);
+                homeBaseGroup.position.set(homeBasePos.x, 0, homeBasePos.z);
+            });
         }
-        
-        
+
+        // Player spawning
         function createPlayer() {
             snailGroup = new THREE.Group();
-            // Spawn right inside the 3D mothership so the player emerges out into the maze
             snailGroup.position.set(homeBasePos.x, 0.4, homeBasePos.z);
-            snailGroup.rotation.y = Math.PI; // Facing north up the open corridor
+            snailGroup.rotation.y = Math.PI; // Facing north
             scene.add(snailGroup);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -486,6 +508,7 @@
             });
         }
 
+        // Liberty Bell (Freeze-ray enemy) spawning
         function spawnLibertyBell() {
             bellGroup = new THREE.Group();
             bellGroup.position.set(0, 1.2, 0);
@@ -539,6 +562,7 @@
             });
         }
 
+        // Guard AI
         function pickNextPatrolTarget(guard) {
             const dirs = [
                 { dr: -1, dc: 0, rot: Math.PI },
@@ -564,22 +588,14 @@
         }
 
         function spawnGuards() {
-            const guardStarts = [
-                { r: 3, c: 7 },
-                { r: 5, c: 11 },
-                { r: 7, c: 3 }
-            ];
-
+            const guardStarts = [ { r: 3, c: 7 }, { r: 5, c: 11 }, { r: 7, c: 3 } ];
             guardStarts.forEach(start => {
                 const startWorld = gridToWorld(start.r, start.c);
                 const guardGroup = new THREE.Group();
                 guardGroup.position.set(startWorld.x, 0.5, startWorld.z);
                 scene.add(guardGroup);
 
-                const mesh = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8),
-                    new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x550000, roughness: 0.3 })
-                );
+                const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8), new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x550000, roughness: 0.3 }));
                 mesh.position.y = 0.7;
                 guardGroup.add(mesh);
 
@@ -592,34 +608,35 @@
                     guardGroup.remove(mesh);
                 }, undefined, () => {});
 
-                const guardObj = {
-                    mesh: guardGroup,
-                    gridR: start.r,
-                    gridC: start.c,
-                    nextR: start.r,
-                    nextC: start.c,
-                    targetPos: { x: startWorld.x, z: startWorld.z },
-                    lastDr: 0,
-                    lastDc: 0,
-                    lastShot: 0,
-                    state: 'PATROL',
-                    lostSightTimer: 0
-                };
+                const guardObj = { mesh: guardGroup, gridR: start.r, gridC: start.c, nextR: start.r, nextC: start.c, targetPos: { x: startWorld.x, z: startWorld.z }, lastDr: 0, lastDc: 0, lastShot: 0, state: 'PATROL', lostSightTimer: 0 };
                 pickNextPatrolTarget(guardObj);
                 guards.push(guardObj);
             });
         }
 
+        // --- NEW LINE OF SIGHT CHECK (Raycaster) ---
+        function checkLineOfSight(guardPos, playerPos) {
+            const direction = new THREE.Vector3();
+            direction.subVectors(playerPos, guardPos).normalize();
+            const startPoint = guardPos.clone().add(direction.clone().multiplyScalar(0.5)); // Start slightly ahead
+            raycaster.set(startPoint, direction);
+            const intersects = raycaster.intersectObjects(wallMeshes, true);
+            if (intersects.length > 0) {
+                const distanceToWall = intersects[0].distance;
+                const distanceToPlayer = guardPos.distanceTo(playerPos);
+                if (distanceToWall < distanceToPlayer - 0.5) return false; // Wall closer than player
+            }
+            return true; // LOS clear
+        }
+
+        // Control binding
         function bindDPad() {
             const btnMap = { 'btn-up': 'up', 'btn-down': 'down', 'btn-left': 'left', 'btn-right': 'right' };
-
             Object.keys(btnMap).forEach(id => {
                 const btn = document.getElementById(id);
                 const key = btnMap[id];
-
                 const startAction = (e) => { e.preventDefault(); moveFlags[key] = true; btn.classList.add('active'); };
                 const stopAction = (e) => { e.preventDefault(); moveFlags[key] = false; btn.classList.remove('active'); };
-
                 btn.addEventListener('touchstart', startAction, { passive: false });
                 btn.addEventListener('touchend', stopAction, { passive: false });
                 btn.addEventListener('touchcancel', stopAction, { passive: false });
@@ -627,7 +644,6 @@
                 btn.addEventListener('mouseup', stopAction);
                 btn.addEventListener('mouseleave', stopAction);
             });
-
             window.addEventListener('keydown', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = true;
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
@@ -642,42 +658,14 @@
             });
         }
 
-        function checkGridLineOfSight(guardPos, playerPos) {
-            const x0 = Math.floor((guardPos.x + gridOffset + CELL_SIZE/2) / CELL_SIZE);
-            const z0 = Math.floor((guardPos.z + gridOffset + CELL_SIZE/2) / CELL_SIZE);
-            const x1 = Math.floor((playerPos.x + gridOffset + CELL_SIZE/2) / CELL_SIZE);
-            const z1 = Math.floor((playerPos.z + gridOffset + CELL_SIZE/2) / CELL_SIZE);
-
-            let dx = Math.abs(x1 - x0);
-            let dz = Math.abs(z1 - z0);
-            let sx = (x0 < x1) ? 1 : -1;
-            let sz = (z0 < z1) ? 1 : -1;
-            let err = dx - dz;
-
-            let cx = x0;
-            let cz = z0;
-
-            while (true) {
-                if (cx < 0 || cx >= MAZE_SIZE || cz < 0 || cz >= MAZE_SIZE) return false;
-                if (mazeGrid[cz][cx] === 1) return false;
-                if (cx === x1 && cz === z1) break;
-                let e2 = 2 * err;
-                if (e2 > -dz) { err -= dz; cx += sx; }
-                if (e2 < dx) { err += dx; cz += sz; }
-            }
-            return true;
-        }
-
+        // Gameplay functions
         function shootLaser(guardPos) {
             if (!snailGroup) return;
-
             const laserGeo = new THREE.SphereGeometry(0.18, 8, 8);
             const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
             const laserMesh = new THREE.Mesh(laserGeo, laserMat);
-
             laserMesh.position.set(guardPos.x, 0.8, guardPos.z);
             scene.add(laserMesh);
-
             const dir = new THREE.Vector3().subVectors(snailGroup.position, guardPos).normalize();
             projectiles.push({ mesh: laserMesh, dir: dir, life: 120 });
         }
@@ -686,31 +674,27 @@
             playerHealth = Math.max(0, playerHealth - amount);
             const fill = document.getElementById('health-bar-fill');
             fill.style.width = playerHealth + '%';
-
             if (playerHealth < 30) fill.style.backgroundColor = '#ff0055';
             else if (playerHealth < 60) fill.style.backgroundColor = '#ffea00';
-
             if (playerHealth <= 0) endGame(false, "HEALTH DEPLETED!");
         }
 
         function checkWallCollision(newPos, radius = 0.35) {
             tempPlayerBox.min.set(newPos.x - radius, 0, newPos.z - radius);
             tempPlayerBox.max.set(newPos.x + radius, 1.5, newPos.z + radius);
-
             for (let i = 0; i < walls.length; i++) {
                 if (tempPlayerBox.intersectsBox(walls[i])) return true;
             }
             return false;
         }
 
+        // GPS Update
         function updateGPS() {
             const gpsCanvas = document.getElementById('gps-canvas');
             const ctx = gpsCanvas.getContext('2d');
             ctx.clearRect(0, 0, 110, 110);
-
             const mapScale = 90 / (MAZE_SIZE * CELL_SIZE);
             const centerX = 55, centerY = 55;
-
             ctx.fillStyle = '#112233';
             for (let r = 0; r < MAZE_SIZE; r++) {
                 for (let c = 0; c < MAZE_SIZE; c++) {
@@ -721,260 +705,156 @@
                     }
                 }
             }
-
-            // Mothership Home Base on GPS
             const hx = homeBasePos.x * mapScale + centerX;
             const hz = homeBasePos.z * mapScale + centerY;
-            ctx.fillStyle = '#00ffcc';
-            ctx.fillRect(hx - 4.5, hz - 4.5, 9, 9);
-
+            ctx.fillStyle = '#00ffcc'; ctx.fillRect(hx - 4.5, hz - 4.5, 9, 9);
             ctx.fillStyle = '#ffff00';
             babies.forEach(b => {
                 if (!b.returnedHome) {
                     const bx = b.mesh.position.x * mapScale + centerX;
                     const bz = b.mesh.position.z * mapScale + centerY;
-                    ctx.beginPath();
-                    ctx.arc(bx, bz, 2.5, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.beginPath(); ctx.arc(bx, bz, 2.5, 0, Math.PI * 2); ctx.fill();
                 }
             });
-
             guards.forEach(g => {
                 ctx.fillStyle = (g.state === 'CHASE') ? '#ff0000' : '#ff0055';
                 const gx = g.mesh.position.x * mapScale + centerX;
                 const gz = g.mesh.position.z * mapScale + centerY;
-                ctx.beginPath();
-                ctx.arc(gx, gz, 3, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(gx, gz, 3, 0, Math.PI * 2); ctx.fill();
             });
-
             if (bellGroup) {
                 ctx.fillStyle = '#00ffff';
                 const lx = bellGroup.position.x * mapScale + centerX;
                 const lz = bellGroup.position.z * mapScale + centerY;
-                ctx.beginPath();
-                ctx.arc(lx, lz, 3, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(lx, lz, 3, 0, Math.PI * 2); ctx.fill();
             }
-
             if (snailGroup) {
                 const px = snailGroup.position.x * mapScale + centerX;
                 const pz = snailGroup.position.z * mapScale + centerY;
-
-                ctx.save();
-                ctx.translate(px, pz);
-                ctx.rotate(-snailGroup.rotation.y);
-                ctx.fillStyle = '#39ff14';
-                ctx.beginPath();
-                ctx.moveTo(0, -4.5);
-                ctx.lineTo(-2.5, 3.5);
-                ctx.lineTo(2.5, 3.5);
-                ctx.closePath();
-                ctx.fill();
+                ctx.save(); ctx.translate(px, pz); ctx.rotate(-snailGroup.rotation.y);
+                ctx.fillStyle = '#39ff14'; ctx.beginPath(); ctx.moveTo(0, -4.5); ctx.lineTo(-2.5, 3.5); ctx.lineTo(2.5, 3.5); ctx.closePath(); ctx.fill();
                 ctx.restore();
             }
         }
 
+        // Main Animation Loop
         function animate() {
             if (isGameOver) return;
             requestAnimationFrame(animate);
-
             const delta = Math.min(clock.getDelta(), 0.1);
             const now = Date.now();
-
             if (isFrozen) {
                 freezeTimer -= delta * 1000;
-                if (freezeTimer <= 0) {
-                    isFrozen = false;
-                    document.getElementById('status-msg').style.display = 'none';
-                }
+                if (freezeTimer <= 0) { isFrozen = false; document.getElementById('status-msg').style.display = 'none'; }
             }
-
             if (!isFrozen && snailGroup) {
                 if (moveFlags.left) snailGroup.rotation.y += ROT_SPEED * delta;
                 if (moveFlags.right) snailGroup.rotation.y -= ROT_SPEED * delta;
-
                 let moveDir = 0;
                 if (moveFlags.up) moveDir += 1;
                 if (moveFlags.down) moveDir -= 1;
-
                 if (moveDir !== 0) {
                     const moveDistance = moveDir * SPEED * delta;
                     const nextX = snailGroup.position.x + Math.sin(snailGroup.rotation.y) * moveDistance;
                     const nextZ = snailGroup.position.z + Math.cos(snailGroup.rotation.y) * moveDistance;
-
                     if (!checkWallCollision({ x: nextX, z: snailGroup.position.z })) snailGroup.position.x = nextX;
                     if (!checkWallCollision({ x: snailGroup.position.x, z: nextZ })) snailGroup.position.z = nextZ;
                 }
             }
-
             if (bellGroup) {
                 bellGroup.rotation.y += 1.2 * delta;
                 const nextBellX = bellGroup.position.x + bellVelocity.x * delta;
                 const nextBellZ = bellGroup.position.z + bellVelocity.z * delta;
-
-                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1;
-                else bellGroup.position.x = nextBellX;
-
-                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1;
-                else bellGroup.position.z = nextBellZ;
-
-                if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) {
-                    isFrozen = true;
-                    freezeTimer = 2500;
-                    document.getElementById('status-msg').style.display = 'block';
-                }
+                if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1; else bellGroup.position.x = nextBellX;
+                if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1; else bellGroup.position.z = nextBellZ;
+                if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) { isFrozen = true; freezeTimer = 2500; document.getElementById('status-msg').style.display = 'block'; }
             }
-
             guards.forEach(guard => {
-                const canSeePlayer = snailGroup ? checkGridLineOfSight(guard.mesh.position, snailGroup.position) : false;
-
-                if (canSeePlayer) {
-                    guard.state = 'CHASE';
-                    guard.lostSightTimer = 0;
-                } else if (guard.state === 'CHASE') {
+                // --- USE NEW LOS CHECK ---
+                const distanceToPlayer = snailGroup ? guard.mesh.position.distanceTo(snailGroup.position) : Infinity;
+                let canSeePlayer = false;
+                if (snailGroup && distanceToPlayer < GUARD_SIGHT_RANGE) {
+                    canSeePlayer = checkLineOfSight(guard.mesh.position, snailGroup.position);
+                }
+                if (canSeePlayer) { guard.state = 'CHASE'; guard.lostSightTimer = 0; }
+                else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
                         guard.state = 'PATROL';
                         const curr = worldToGrid(guard.mesh.position.x, guard.mesh.position.z);
-                        guard.gridR = curr.r;
-                        guard.gridC = curr.c;
-                        pickNextPatrolTarget(guard);
+                        guard.gridR = curr.r; guard.gridC = curr.c; pickNextPatrolTarget(guard);
                     }
                 }
-
                 if (guard.state === 'CHASE' && snailGroup) {
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
                     dir.y = 0;
                     if (dir.lengthSq() > 0.0001) dir.normalize();
-
                     const nextX = guard.mesh.position.x + dir.x * GUARD_CHASE_SPEED * delta;
                     const nextZ = guard.mesh.position.z + dir.z * GUARD_CHASE_SPEED * delta;
-
                     if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.35)) guard.mesh.position.x = nextX;
                     if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.35)) guard.mesh.position.z = nextZ;
-
                     guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-
-                    if (now - guard.lastShot > 1400) {
-                        shootLaser(guard.mesh.position);
-                        guard.lastShot = now;
-                    }
+                    if (now - guard.lastShot > 1400) { shootLaser(guard.mesh.position); guard.lastShot = now; }
                 } else {
                     const dx = guard.targetPos.x - guard.mesh.position.x;
                     const dz = guard.targetPos.z - guard.mesh.position.z;
                     const dist = Math.hypot(dx, dz);
                     const step = GUARD_PATROL_SPEED * delta;
-
-                    if (dist <= step + 0.02) {
-                        guard.mesh.position.x = guard.targetPos.x;
-                        guard.mesh.position.z = guard.targetPos.z;
-                        guard.gridR = guard.nextR;
-                        guard.gridC = guard.nextC;
-                        pickNextPatrolTarget(guard);
-                    } else {
-                        guard.mesh.position.x += (dx / dist) * step;
-                        guard.mesh.position.z += (dz / dist) * step;
-                    }
+                    if (dist <= step + 0.02) { guard.mesh.position.x = guard.targetPos.x; guard.mesh.position.z = guard.targetPos.z; guard.gridR = guard.nextR; guard.gridC = guard.nextC; pickNextPatrolTarget(guard); }
+                    else { guard.mesh.position.x += (dx / dist) * step; guard.mesh.position.z += (dz / dist) * step; }
                 }
-
-                if (snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.1) {
-                    endGame(false, "GOTCHA!");
-                }
+                if (snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.1) endGame(false, "GOTCHA!");
             });
-
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
                 proj.life -= delta * 60;
-
-                if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) {
-                    scene.remove(proj.mesh);
-                    projectiles.splice(i, 1);
-                    continue;
-                }
-
+                if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) { scene.remove(proj.mesh); projectiles.splice(i, 1); continue; }
                 let hitDetected = false;
                 if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.7) hitDetected = true;
-
                 if (!hitDetected) {
                     babies.forEach(baby => {
-                        if (baby.following && !baby.returnedHome) {
-                            if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.5) hitDetected = true;
-                        }
+                        if (baby.following && !baby.returnedHome) { if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.5) hitDetected = true; }
                     });
                 }
-
-                if (hitDetected) {
-                    scene.remove(proj.mesh);
-                    projectiles.splice(i, 1);
-                    takeDamage(25);
-                    return;
-                }
+                if (hitDetected) { scene.remove(proj.mesh); projectiles.splice(i, 1); takeDamage(25); return; }
             }
-
             if (snailGroup) {
                 const camDistance = 7.5;
                 const camHeight = 4.8;
-
                 const camX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * camDistance;
                 const camZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * camDistance;
-
                 camera.position.set(camX, snailGroup.position.y + camHeight, camZ);
                 camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.8, snailGroup.position.z);
             }
-
             let followers = babies.filter(b => b.following && !b.returnedHome);
-
             babies.forEach(baby => {
                 if (baby.returnedHome) return;
                 baby.mesh.rotation.y += 1.2 * delta;
-
-                if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.4) {
-                    baby.following = true;
-                }
-
+                if (!baby.following && snailGroup && snailGroup.position.distanceTo(baby.mesh.position) < 1.4) baby.following = true;
                 if (baby.following) {
                     const followIdx = followers.indexOf(baby) + 1;
                     const targetDistance = followIdx * 1.1;
-
                     const targetX = snailGroup.position.x - Math.sin(snailGroup.rotation.y) * targetDistance;
                     const targetZ = snailGroup.position.z - Math.cos(snailGroup.rotation.y) * targetDistance;
-
                     const followSpeed = 6.0 * delta;
                     baby.mesh.position.x += (targetX - baby.mesh.position.x) * followSpeed;
                     baby.mesh.position.z += (targetZ - baby.mesh.position.z) * followSpeed;
                     baby.mesh.position.y = 0.3;
-
-                    // Babies enter the 3D mothership when returned to homeBaseGroup
                     const distToBase = baby.mesh.position.distanceTo(homeBaseGroup.position);
                     const playerAtBase = snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.2;
-
-                    if (distToBase < 1.8 || playerAtBase) {
-                        baby.following = false;
-                        baby.returnedHome = true;
-                        scene.remove(baby.mesh);
-                        homeCount++;
-                        document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`;
-                    }
+                    if (distToBase < 1.8 || playerAtBase) { baby.following = false; baby.returnedHome = true; scene.remove(baby.mesh); homeCount++; document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`; }
                 }
             });
-
-            // Win triggers when all 3 babies are safely inside the mothership AND the player returns into the ship
-            if (homeCount === TOTAL_BABIES && snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.0) {
-                endGame(true);
-            }
-
+            if (homeCount === TOTAL_BABIES && snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.0) endGame(true);
             updateGPS();
             renderer.render(scene, camera);
         }
 
+        // Game over/win handling
         function handleModalAction() {
-            if (levelWon) {
-                window.location.href = 'Level_2.html';
-            } else {
-                location.reload();
-            }
+            if (levelWon) window.location.href = 'Level_2.html';
+            else location.reload();
         }
 
         function endGame(isWin, customMsg) {
@@ -985,34 +865,19 @@
             const msg = document.getElementById('modal-msg');
             const starContainer = document.getElementById('star-container');
             const actionBtn = document.getElementById('btn-action');
-
             if (isWin) {
-                title.innerText = "LEVEL COMPLETE!";
-                title.style.color = "#00ffcc";
-                msg.innerText = "You returned to the mothership with all baby Stellapods!";
-                actionBtn.innerText = "NEXT LEVEL (LEVEL 2)";
-
-                let stars = 1;
-                if (playerHealth >= 80) stars = 3;
-                else if (playerHealth >= 40) stars = 2;
-
+                title.innerText = "LEVEL COMPLETE!"; title.style.color = "#00ffcc"; msg.innerText = "You returned to the mothership with all baby Stellapods!"; actionBtn.innerText = "NEXT LEVEL (LEVEL 2)";
+                let stars = 1; if (playerHealth >= 80) stars = 3; else if (playerHealth >= 40) stars = 2;
                 let starHTML = '';
-                for (let i = 0; i < 3; i++) {
-                    if (i < stars) starHTML += '<span class="star-gold">★</span> ';
-                    else starHTML += '<span>★</span> ';
-                }
-                starContainer.innerHTML = starHTML;
-                starContainer.style.display = 'block';
+                for (let i = 0; i < 3; i++) { if (i < stars) starHTML += '<span class="star-gold">★</span> '; else starHTML += '<span>★</span> '; }
+                starContainer.innerHTML = starHTML; starContainer.style.display = 'block';
             } else {
-                title.innerText = customMsg || "CAUGHT BY GUARD!";
-                title.style.color = "#ff007f";
-                msg.innerText = "A guard spotted and blasted you!";
-                actionBtn.innerText = "PLAY AGAIN";
-                starContainer.style.display = 'none';
+                title.innerText = customMsg || "CAUGHT BY GUARD!"; title.style.color = "#ff007f"; msg.innerText = "A guard spotted and blasted you!"; actionBtn.innerText = "PLAY AGAIN"; starContainer.style.display = 'none';
             }
             modal.style.display = 'flex';
         }
 
+        // Window resize handler
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
