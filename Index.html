@@ -312,15 +312,14 @@
     }
 
     startBtn.addEventListener('click', () => {
-      if (numericLevel === 1) {
-        window.location.href = 'Level_1:10.html';
-      } else {
-        window.location.href = `Level_${numericLevel}.html`;
-      }
+      const targetFile = numericLevel === 1
+        ? './level-1-10.html'
+        : `./level-${numericLevel}.html`;
+      window.location.assign(targetFile);
     });
 
     function goToHomeBase() {
-      window.location.href = 'nursery.html';
+      window.location.assign('./nursery.html');
     }
 
     // --- THREE.JS 3D SHOWCASE LOGIC ---
@@ -406,4 +405,5 @@
     }
   </script>
 </body>
-</html>
+  </html>
+  
