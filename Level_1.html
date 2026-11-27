@@ -43,6 +43,7 @@
             justify-content: space-between;
             align-items: flex-start;
             width: 100%;
+            gap: 10px;
         }
 
         .hud-panel {
@@ -89,6 +90,36 @@
             display: none;
         }
 
+        #distract-msg {
+            color: #00f2ff;
+            font-weight: bold;
+            font-size: 12px;
+            display: none;
+        }
+
+        .hud-btn {
+            background: rgba(0, 242, 255, 0.15);
+            border: 1px solid #00f2ff;
+            color: #00f2ff;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 2px;
+        }
+
+        #neural-inspector {
+            display: none;
+            margin-top: 4px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(0, 255, 204, 0.25);
+            font-size: 11px;
+            line-height: 1.4;
+            color: #b8f5ff;
+            max-width: 220px;
+        }
+
         #gps-container {
             position: relative;
             width: 110px;
@@ -99,6 +130,7 @@
             overflow: hidden;
             box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
             pointer-events: auto;
+            flex-shrink: 0;
         }
 
         #gps-canvas {
@@ -126,10 +158,10 @@
         /* D-PAD CONTROLS */
         #dpad-zone {
             position: absolute;
-            bottom: 60px;
-            left: 60px;
-            width: 210px;
-            height: 210px;
+            bottom: 50px;
+            left: 30px;
+            width: 190px;
+            height: 190px;
             pointer-events: auto;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -142,7 +174,7 @@
             border: 3px solid #00ffcc;
             border-radius: 12px;
             color: #00ffcc;
-            font-size: 32px;
+            font-size: 30px;
             font-weight: bold;
             display: flex;
             align-items: center;
@@ -162,6 +194,40 @@
         #btn-left { grid-column: 1; grid-row: 2; }
         #btn-right { grid-column: 3; grid-row: 2; }
         #btn-down { grid-column: 2; grid-row: 3; }
+
+        /* SWING / HIT ACTION BUTTON */
+        #action-zone {
+            position: absolute;
+            bottom: 65px;
+            right: 30px;
+            pointer-events: auto;
+        }
+
+        #btn-swing {
+            width: 118px;
+            height: 118px;
+            border-radius: 50%;
+            background: rgba(255, 0, 127, 0.28);
+            border: 3px solid #ff007f;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 0 18px rgba(255, 0, 127, 0.45);
+        }
+
+        #btn-swing:active, #btn-swing.active {
+            background: rgba(255, 0, 127, 0.85);
+            transform: scale(0.95);
+            box-shadow: 0 0 26px rgba(255, 0, 127, 0.95);
+        }
 
         #game-over-modal {
             position: absolute;
@@ -221,6 +287,9 @@
                 </div>
                 <div>Babies Rescued: <span id="rescued-count" class="stat-value">0 / 3</span></div>
                 <div id="status-msg">FROZEN BY LIBERTY BELL!</div>
+                <div id="distract-msg">CLANG! GUARDS DISTRACTED!</div>
+                <button class="hud-btn" id="btn-toggle-brain" onclick="toggleBrainInspector()">NEURAL SCAN: OFF</button>
+                <div id="neural-inspector"></div>
             </div>
 
             <div id="gps-container">
@@ -234,6 +303,13 @@
             <div id="btn-left" class="dbtn">◀</div>
             <div id="btn-right" class="dbtn">▶</div>
             <div id="btn-down" class="dbtn">▼</div>
+        </div>
+
+        <div id="action-zone">
+            <div id="btn-swing">
+                <span>SWING</span>
+                <span style="font-size:11px; color:#ffd6eb;">HIT / LURE</span>
+            </div>
         </div>
     </div>
 
@@ -264,12 +340,16 @@
         const SPEED = 8.0;
         const GUARD_PATROL_SPEED = 2.4;
         const GUARD_CHASE_SPEED = 4.6;
+        const GUARD_INVESTIGATE_SPEED = 3.8;
         const ROT_SPEED = 2.5;
-        const GUARD_SIGHT_RANGE = 20; // Added sight range constant
+        const GUARD_SIGHT_RANGE = 20;
+        const SWING_HIT_RANGE = 2.6;
+        const SWING_HEAR_RANGE = 11.5;
+        const SWING_COOLDOWN_MS = 650;
 
         // Game state variables
         let scene, camera, renderer, clock;
-        let snailGroup, bellGroup, homeBaseGroup;
+        let snailGroup, swingRingMesh, bellGroup, homeBaseGroup;
         let bellVelocity = { x: 3.0, z: 2.2 };
         let isFrozen = false, freezeTimer = 0;
         let homeCount = 0;
@@ -278,18 +358,24 @@
         let isGameOver = false;
         let levelWon = false;
 
+        // Swing / Distraction state
+        let lastSwingTime = 0;
+        let swingAnimTimer = 0;
+        let brainInspectorOpen = false;
+        let guardCounter = 0;
+
         // Input state
         let moveFlags = { up: false, down: false, left: false, right: false };
-        
+
         // Game objects arrays
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [];
 
         // Home base position (Row 13, Col 1)
         const homeBasePos = { x: -16.8, z: 16.8 };
-        
+
         // Reusable geometry objects
         const tempPlayerBox = new THREE.Box3();
-        const raycaster = new THREE.Raycaster(); // Added for LOS check
+        const raycaster = new THREE.Raycaster();
 
         // Loaders
         const gltfLoader = new THREE.GLTFLoader();
@@ -313,6 +399,78 @@
             [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
+
+        // ==========================================
+        // GUARD NEURAL BRAIN (2 -> 8 -> 1 tanh/sigmoid)
+        // Level 1 = Newbie (hesitant/noisy)
+        // Level 2 = Paranoid (twitchy/high bias, overreacts to noise/clues)
+        // Level 3+ = Educated (pattern-smart, less fooled by single false clues)
+        // ==========================================
+        function sigmoid(z) {
+            return 1 / (1 + Math.exp(-Math.max(-20, Math.min(20, z))));
+        }
+
+        function createGuardBrain(rankLevel = 1) {
+            // Deterministic-friendly small weights shaped by guard rank
+            if (rankLevel >= 3) {
+                // Educated: requires combined cues (like XOR / two clues) for high alert
+                return {
+                    rankLabel: 'LVL 3: EDUCATED',
+                    epochs: 5000,
+                    W1: [
+                        [1.8, -1.6, 1.4, -1.5, 1.2, -1.2, 0.9, -0.9],
+                        [-1.6, 1.8, -1.4, 1.5, 1.1, -1.1, 0.8, -0.8]
+                    ],
+                    b1: [-0.4, -0.4, 0.3, 0.3, -0.8, -0.8, -0.5, -0.5],
+                    W2: [[1.5], [1.5], [-1.3], [-1.3], [1.4], [1.4], [0.7], [0.7]],
+                    b2: [-0.9]
+                };
+            }
+            if (rankLevel === 2) {
+                // Paranoid: elevated bias & strong sensitivity so single clues spike alert
+                return {
+                    rankLabel: 'LVL 2: PARANOID',
+                    epochs: 1400,
+                    W1: [
+                        [1.7, 1.5, 1.3, 1.2, 0.9, 1.1, 0.8, 1.0],
+                        [1.4, 1.6, 1.2, 1.4, 1.0, 0.9, 1.1, 0.8]
+                    ],
+                    b1: [0.6, 0.5, 0.4, 0.5, 0.3, 0.4, 0.3, 0.4],
+                    W2: [[1.1], [1.1], [0.9], [1.0], [0.8], [0.9], [0.8], [0.9]],
+                    b2: [0.55]
+                };
+            }
+            // Level 1: Newbie (default for Level 1 & any newly spawned replacement guards)
+            return {
+                rankLabel: 'LVL 1: NEWBIE',
+                epochs: 200,
+                W1: [
+                    [0.35, -0.25, 0.2, 0.15, -0.15, 0.25, 0.1, -0.2],
+                    [-0.2, 0.3, 0.15, -0.25, 0.2, -0.1, 0.25, 0.1]
+                ],
+                b1: [-0.2, -0.15, 0.0, -0.1, 0.05, -0.05, 0.0, -0.1],
+                W2: [[0.4], [0.35], [0.25], [-0.2], [0.3], [0.2], [0.15], [-0.15]],
+                b2: [-0.45]
+            };
+        }
+
+        function evaluateGuardBrain(guard, sightInput, noiseInput) {
+            const brain = guard.brain;
+            const x = [sightInput, noiseInput];
+            const hidden = [];
+
+            for (let j = 0; j < 8; j++) {
+                const sum = x[0] * brain.W1[0][j] + x[1] * brain.W1[1][j] + brain.b1[j];
+                hidden.push(Math.tanh(sum));
+            }
+
+            let outSum = brain.b2[0];
+            for (let j = 0; j < 8; j++) {
+                outSum += hidden[j] * brain.W2[j][0];
+            }
+
+            return sigmoid(outSum);
+        }
 
         // Utility functions
         function gridToWorld(r, c) {
@@ -367,6 +525,7 @@
             spawnGuards();
 
             bindDPad();
+            bindSwingAction();
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -384,23 +543,21 @@
 
         // Maze construction
         function buildMaze() {
-            // Floor
             const floorTex = textureLoader.load(ASSETS.floorTex,
                 (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 12); t.needsUpdate = true; },
                 undefined, () => createFallbackTexture('#0f0f2d', '#1a1a40')
             );
-            const floorMat = new THREE.StandardMaterial({ map: floorTex, roughness: 0.5 });
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
             const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            // Walls
             const wallTex = textureLoader.load(ASSETS.wallTex,
                 (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1); t.needsUpdate = true; },
                 undefined, () => createFallbackTexture('#1a233a', '#223355')
             );
-            const wallMat = new THREE.StandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.4, metalness: 0.1 });
             const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
 
             for (let r = 0; r < MAZE_SIZE; r++) {
@@ -416,47 +573,34 @@
             }
         }
 
-        // Home Base Spawning (Corrected Scale & Position)
+        // Home Base Spawning
         function spawnHomeBase() {
             homeBaseGroup = new THREE.Group();
             scene.add(homeBaseGroup);
 
-            // Add a soft, glowing beacon light above the base
             const baseLight = new THREE.PointLight(0x00ffcc, 3.5, 15);
             baseLight.position.set(0, 4.0, 0);
             homeBaseGroup.add(baseLight);
 
-            // Add the "landing pad" glowing ring on the floor
             const ringMesh = new THREE.Mesh(
                 new THREE.RingGeometry(1.1, 1.45, 24),
                 new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
             );
-            ringMesh.rotation.x = -Math.PI / 2; // Lay it flat on the ground
-            ringMesh.position.y = 0.02; // Slightly above floor
+            ringMesh.rotation.x = -Math.PI / 2;
+            ringMesh.position.y = 0.02;
             homeBaseGroup.add(ringMesh);
 
-            // Load the 3D Model
             gltfLoader.load(ASSETS.baseModel, (gltf) => {
                 const model = gltf.scene;
-
-                // --- FIX ORIENTATION ---
-                // Rotate to stand upright (engine thrusters pointing down)
                 model.rotation.x = Math.PI / 2;
-
-                // --- FIX SCALE (Set directly to 5.8) ---
                 model.scale.set(5.8, 5.8, 5.8);
-
-                // --- FIX POSITION (Rise up out of floor) ---
-                // IMPORTANT: Update matrices to get accurate world boundaries
                 model.updateMatrixWorld(true);
                 const box = new THREE.Box3().setFromObject(model);
-                // Shift the model *up* so its lowest point sits at y=0
                 model.position.y = -box.min.y;
 
                 homeBaseGroup.add(model);
-                homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z); // Position the whole group
+                homeBaseGroup.position.set(homeBasePos.x, 0.05, homeBasePos.z);
 
-                // Optional: Add a small pulsing animation to the light
                 function animateBase() {
                     requestAnimationFrame(animateBase);
                     const time = Date.now() * 0.001;
@@ -466,7 +610,6 @@
 
             }, undefined, (error) => {
                 console.error('Error loading home base model:', error);
-                // FALLBACK SHAPE: A simple blue cylinder and hemisphere
                 const fallbackHull = new THREE.Mesh(
                     new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16),
                     new THREE.MeshStandardMaterial({ color: 0x004466, emissive: 0x00aaff })
@@ -484,12 +627,26 @@
             });
         }
 
-        // Player spawning
+        // Player spawning + Swing Arc visual indicator
         function createPlayer() {
             snailGroup = new THREE.Group();
             snailGroup.position.set(homeBasePos.x, 0.4, homeBasePos.z);
-            snailGroup.rotation.y = Math.PI; // Facing north
+            snailGroup.rotation.y = Math.PI;
             scene.add(snailGroup);
+
+            // Visual swing/distraction ring around player (visible when swinging)
+            swingRingMesh = new THREE.Mesh(
+                new THREE.RingGeometry(0.85, 2.35, 28),
+                new THREE.MeshBasicMaterial({
+                    color: 0xff007f,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.0
+                })
+            );
+            swingRingMesh.rotation.x = -Math.PI / 2;
+            swingRingMesh.position.y = 0.06;
+            snailGroup.add(swingRingMesh);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
                 const model = gltf.scene;
@@ -563,7 +720,7 @@
             });
         }
 
-        // Guard AI
+        // Guard AI + Neural Brain + Respawn at Level 1
         function pickNextPatrolTarget(guard) {
             const dirs = [
                 { dr: -1, dc: 0, rot: Math.PI },
@@ -588,46 +745,153 @@
             guard.mesh.rotation.y = chosen.rot;
         }
 
+        function createSingleGuard(start, rankLevel = 1) {
+            guardCounter++;
+            const startWorld = gridToWorld(start.r, start.c);
+            const guardGroup = new THREE.Group();
+            guardGroup.position.set(startWorld.x, 0.5, startWorld.z);
+            scene.add(guardGroup);
+
+            const placeholderMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8),
+                new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x550000, roughness: 0.3 })
+            );
+            placeholderMesh.position.y = 0.7;
+            guardGroup.add(placeholderMesh);
+
+            gltfLoader.load(ASSETS.guardModel, (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                model.position.y = -box.min.y;
+                model.scale.set(0.65, 0.65, 0.65);
+                guardGroup.add(model);
+                guardGroup.remove(placeholderMesh);
+            }, undefined, () => {});
+
+            const guardObj = {
+                id: 'VGD-' + String(guardCounter).padStart(2, '0'),
+                channel: 'CH-' + ((guardCounter % 3) + 1),
+                startR: start.r,
+                startC: start.c,
+                rankLevel: rankLevel,
+                brain: createGuardBrain(rankLevel),
+                alertScore: 0,
+                noiseCue: 0,
+                investigatePos: null,
+                mesh: guardGroup,
+                gridR: start.r,
+                gridC: start.c,
+                nextR: start.r,
+                nextC: start.c,
+                targetPos: { x: startWorld.x, z: startWorld.z },
+                lastDr: 0,
+                lastDc: 0,
+                lastShot: 0,
+                state: 'PATROL',
+                lostSightTimer: 0
+            };
+
+            pickNextPatrolTarget(guardObj);
+            return guardObj;
+        }
+
         function spawnGuards() {
-            const guardStarts = [ { r: 3, c: 7 }, { r: 5, c: 11 }, { r: 7, c: 3 } ];
-            guardStarts.forEach(start => {
-                const startWorld = gridToWorld(start.r, start.c);
-                const guardGroup = new THREE.Group();
-                guardGroup.position.set(startWorld.x, 0.5, startWorld.z);
-                scene.add(guardGroup);
-
-                const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.4, 8), new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x550000, roughness: 0.3 }));
-                mesh.position.y = 0.7;
-                guardGroup.add(mesh);
-
-                gltfLoader.load(ASSETS.guardModel, (gltf) => {
-                    const model = gltf.scene;
-                    const box = new THREE.Box3().setFromObject(model);
-                    model.position.y = -box.min.y;
-                    model.scale.set(0.65, 0.65, 0.65);
-                    guardGroup.add(model);
-                    guardGroup.remove(mesh);
-                }, undefined, () => {});
-
-                const guardObj = { mesh: guardGroup, gridR: start.r, gridC: start.c, nextR: start.r, nextC: start.c, targetPos: { x: startWorld.x, z: startWorld.z }, lastDr: 0, lastDc: 0, lastShot: 0, state: 'PATROL', lostSightTimer: 0 };
-                pickNextPatrolTarget(guardObj);
-                guards.push(guardObj);
+            // Level 1 starts all guards at Rank 1 (Newbie)
+            const guardStarts = [
+                { r: 3, c: 7, rank: 1 },
+                { r: 5, c: 11, rank: 1 },
+                { r: 7, c: 3, rank: 1 }
+            ];
+            guardStarts.forEach(cfg => {
+                guards.push(createSingleGuard(cfg, cfg.rank));
             });
         }
 
-        // --- NEW LINE OF SIGHT CHECK (Raycaster) ---
+        function respawnGuardAsNewbie(guard) {
+            scene.remove(guard.mesh);
+            const idx = guards.indexOf(guard);
+            const freshGuard = createSingleGuard({ r: guard.startR, c: guard.startC }, 1);
+            if (idx !== -1) guards[idx] = freshGuard;
+        }
+
+        // --- SWING / HIT & DISTRACTION MECHANIC ---
+        function triggerSwingAction() {
+            if (isGameOver || isFrozen || !snailGroup) return;
+            const now = Date.now();
+            if (now - lastSwingTime < SWING_COOLDOWN_MS) return;
+            lastSwingTime = now;
+            swingAnimTimer = 0.25;
+
+            const swingBtn = document.getElementById('btn-swing');
+            swingBtn.classList.add('active');
+            setTimeout(() => swingBtn.classList.remove('active'), 160);
+
+            const playerPos = snailGroup.position;
+            let anyDistracted = false;
+
+            // Check guards for melee knock-out OR sound/wall distraction
+            for (let i = guards.length - 1; i >= 0; i--) {
+                const g = guards[i];
+                const dist = g.mesh.position.distanceTo(playerPos);
+
+                if (dist <= SWING_HIT_RANGE) {
+                    // Knock out guard -> spawns back at Level 1 Newbie on their start tile
+                    respawnGuardAsNewbie(g);
+                } else if (dist <= SWING_HEAR_RANGE) {
+                    // Send a noise/distraction cue toward where the player swung
+                    g.noiseCue = 1.0;
+                    const lurePos = { x: playerPos.x, z: playerPos.z };
+                    const score = evaluateGuardBrain(g, 0, g.noiseCue);
+                    g.alertScore = score;
+
+                    // Newbies and paranoid guards investigate noise; educated guards only if score crosses threshold
+                    const threshold = (g.rankLevel >= 3) ? 0.65 : 0.35;
+                    if (score >= threshold) {
+                        g.state = 'INVESTIGATE';
+                        g.investigatePos = lurePos;
+                        g.lostSightTimer = 0;
+                        anyDistracted = true;
+                    }
+                }
+            }
+
+            if (anyDistracted) {
+                const msg = document.getElementById('distract-msg');
+                msg.style.display = 'block';
+                setTimeout(() => { msg.style.display = 'none'; }, 1400);
+            }
+        }
+
+        function toggleBrainInspector() {
+            brainInspectorOpen = !brainInspectorOpen;
+            const btn = document.getElementById('btn-toggle-brain');
+            const box = document.getElementById('neural-inspector');
+            btn.innerText = brainInspectorOpen ? 'NEURAL SCAN: ON' : 'NEURAL SCAN: OFF';
+            box.style.display = brainInspectorOpen ? 'block' : 'none';
+        }
+
+        function updateBrainInspector() {
+            if (!brainInspectorOpen) return;
+            const box = document.getElementById('neural-inspector');
+            box.innerHTML = guards.map(g => {
+                const pct = Math.round(g.alertScore * 100);
+                return `<div><b>${g.id}</b> [${g.brain.rankLabel}]<br>State: ${g.state} | Alert: ${pct}% | ${g.channel}</div>`;
+            }).join('<hr style="border:0;border-top:1px solid rgba(0,255,204,0.15);margin:3px 0;">');
+        }
+
+        // --- LINE OF SIGHT CHECK (Raycaster) ---
         function checkLineOfSight(guardPos, playerPos) {
             const direction = new THREE.Vector3();
             direction.subVectors(playerPos, guardPos).normalize();
-            const startPoint = guardPos.clone().add(direction.clone().multiplyScalar(0.5)); // Start slightly ahead
+            const startPoint = guardPos.clone().add(direction.clone().multiplyScalar(0.5));
             raycaster.set(startPoint, direction);
             const intersects = raycaster.intersectObjects(wallMeshes, true);
             if (intersects.length > 0) {
                 const distanceToWall = intersects[0].distance;
                 const distanceToPlayer = guardPos.distanceTo(playerPos);
-                if (distanceToWall < distanceToPlayer - 0.5) return false; // Wall closer than player
+                if (distanceToWall < distanceToPlayer - 0.5) return false;
             }
-            return true; // LOS clear
+            return true;
         }
 
         // Control binding
@@ -650,6 +914,10 @@
                 if (['s','ArrowDown'].includes(e.key)) moveFlags.down = true;
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = true;
                 if (['d','ArrowRight'].includes(e.key)) moveFlags.right = true;
+                if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    triggerSwingAction();
+                }
             });
             window.addEventListener('keyup', e => {
                 if (['w','ArrowUp'].includes(e.key)) moveFlags.up = false;
@@ -657,6 +925,12 @@
                 if (['a','ArrowLeft'].includes(e.key)) moveFlags.left = false;
                 if (['d','ArrowRight'].includes(e.key)) moveFlags.right = false;
             });
+        }
+
+        function bindSwingAction() {
+            const swingBtn = document.getElementById('btn-swing');
+            swingBtn.addEventListener('touchstart', (e) => { e.preventDefault(); triggerSwingAction(); }, { passive: false });
+            swingBtn.addEventListener('mousedown', (e) => { e.preventDefault(); triggerSwingAction(); });
         }
 
         // Gameplay functions
@@ -718,7 +992,7 @@
                 }
             });
             guards.forEach(g => {
-                ctx.fillStyle = (g.state === 'CHASE') ? '#ff0000' : '#ff0055';
+                ctx.fillStyle = (g.state === 'CHASE') ? '#ff0000' : (g.state === 'INVESTIGATE' ? '#00f2ff' : '#ff0055');
                 const gx = g.mesh.position.x * mapScale + centerX;
                 const gz = g.mesh.position.z * mapScale + centerY;
                 ctx.beginPath(); ctx.arc(gx, gz, 3, 0, Math.PI * 2); ctx.fill();
@@ -744,6 +1018,16 @@
             requestAnimationFrame(animate);
             const delta = Math.min(clock.getDelta(), 0.1);
             const now = Date.now();
+
+            if (swingAnimTimer > 0 && swingRingMesh) {
+                swingAnimTimer -= delta;
+                const progress = Math.max(0, swingAnimTimer / 0.25);
+                swingRingMesh.material.opacity = progress * 0.75;
+                const s = 1.25 - progress * 0.35;
+                swingRingMesh.scale.set(s, s, 1);
+                if (swingAnimTimer <= 0) swingRingMesh.material.opacity = 0;
+            }
+
             if (isFrozen) {
                 freezeTimer -= delta * 1000;
                 if (freezeTimer <= 0) { isFrozen = false; document.getElementById('status-msg').style.display = 'none'; }
@@ -770,15 +1054,23 @@
                 if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1; else bellGroup.position.z = nextBellZ;
                 if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) { isFrozen = true; freezeTimer = 2500; document.getElementById('status-msg').style.display = 'block'; }
             }
+
             guards.forEach(guard => {
-                // --- USE NEW LOS CHECK ---
                 const distanceToPlayer = snailGroup ? guard.mesh.position.distanceTo(snailGroup.position) : Infinity;
                 let canSeePlayer = false;
                 if (snailGroup && distanceToPlayer < GUARD_SIGHT_RANGE) {
                     canSeePlayer = checkLineOfSight(guard.mesh.position, snailGroup.position);
                 }
-                if (canSeePlayer) { guard.state = 'CHASE'; guard.lostSightTimer = 0; }
-                else if (guard.state === 'CHASE') {
+
+                // Decay noise cue gradually
+                guard.noiseCue = Math.max(0, guard.noiseCue - delta * 0.45);
+                const sightInput = canSeePlayer ? 1.0 : 0.0;
+                guard.alertScore = evaluateGuardBrain(guard, sightInput, guard.noiseCue);
+
+                if (canSeePlayer) {
+                    guard.state = 'CHASE';
+                    guard.lostSightTimer = 0;
+                } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
                     if (guard.lostSightTimer > 2.0) {
                         guard.state = 'PATROL';
@@ -786,6 +1078,7 @@
                         guard.gridR = curr.r; guard.gridC = curr.c; pickNextPatrolTarget(guard);
                     }
                 }
+
                 if (guard.state === 'CHASE' && snailGroup) {
                     const dir = new THREE.Vector3().subVectors(snailGroup.position, guard.mesh.position);
                     dir.y = 0;
@@ -796,16 +1089,44 @@
                     if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.35)) guard.mesh.position.z = nextZ;
                     guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
                     if (now - guard.lastShot > 1400) { shootLaser(guard.mesh.position); guard.lastShot = now; }
+                } else if (guard.state === 'INVESTIGATE' && guard.investigatePos) {
+                    const dx = guard.investigatePos.x - guard.mesh.position.x;
+                    const dz = guard.investigatePos.z - guard.mesh.position.z;
+                    const dist = Math.hypot(dx, dz);
+                    guard.lostSightTimer += delta;
+                    if (dist < 1.2 || guard.lostSightTimer > 3.5) {
+                        guard.state = 'PATROL';
+                        guard.investigatePos = null;
+                        const curr = worldToGrid(guard.mesh.position.x, guard.mesh.position.z);
+                        guard.gridR = curr.r; guard.gridC = curr.c; pickNextPatrolTarget(guard);
+                    } else {
+                        const step = GUARD_INVESTIGATE_SPEED * delta;
+                        const nextX = guard.mesh.position.x + (dx / dist) * step;
+                        const nextZ = guard.mesh.position.z + (dz / dist) * step;
+                        if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.35)) guard.mesh.position.x = nextX;
+                        if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.35)) guard.mesh.position.z = nextZ;
+                        guard.mesh.rotation.y = Math.atan2(dx, dz);
+                    }
                 } else {
                     const dx = guard.targetPos.x - guard.mesh.position.x;
                     const dz = guard.targetPos.z - guard.mesh.position.z;
                     const dist = Math.hypot(dx, dz);
                     const step = GUARD_PATROL_SPEED * delta;
-                    if (dist <= step + 0.02) { guard.mesh.position.x = guard.targetPos.x; guard.mesh.position.z = guard.targetPos.z; guard.gridR = guard.nextR; guard.gridC = guard.nextC; pickNextPatrolTarget(guard); }
-                    else { guard.mesh.position.x += (dx / dist) * step; guard.mesh.position.z += (dz / dist) * step; }
+                    if (dist <= step + 0.02) {
+                        guard.mesh.position.x = guard.targetPos.x;
+                        guard.mesh.position.z = guard.targetPos.z;
+                        guard.gridR = guard.nextR;
+                        guard.gridC = guard.nextC;
+                        pickNextPatrolTarget(guard);
+                    } else {
+                        guard.mesh.position.x += (dx / dist) * step;
+                        guard.mesh.position.z += (dz / dist) * step;
+                    }
                 }
+
                 if (snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.1) endGame(false, "GOTCHA!");
             });
+
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
                 proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
@@ -820,6 +1141,7 @@
                 }
                 if (hitDetected) { scene.remove(proj.mesh); projectiles.splice(i, 1); takeDamage(25); return; }
             }
+
             if (snailGroup) {
                 const camDistance = 7.5;
                 const camHeight = 4.8;
@@ -828,6 +1150,7 @@
                 camera.position.set(camX, snailGroup.position.y + camHeight, camZ);
                 camera.lookAt(snailGroup.position.x, snailGroup.position.y + 0.8, snailGroup.position.z);
             }
+
             let followers = babies.filter(b => b.following && !b.returnedHome);
             babies.forEach(baby => {
                 if (baby.returnedHome) return;
@@ -847,7 +1170,10 @@
                     if (distToBase < 1.8 || playerAtBase) { baby.following = false; baby.returnedHome = true; scene.remove(baby.mesh); homeCount++; document.getElementById('rescued-count').innerText = `${homeCount} / ${TOTAL_BABIES}`; }
                 }
             });
+
             if (homeCount === TOTAL_BABIES && snailGroup && snailGroup.position.distanceTo(homeBaseGroup.position) < 2.0) endGame(true);
+
+            updateBrainInspector();
             updateGPS();
             renderer.render(scene, camera);
         }
