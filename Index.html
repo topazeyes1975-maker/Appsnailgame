@@ -299,20 +299,24 @@
     }
 
     // Read saved level or default to level 1
-    let currentLevel = localStorage.getItem('savedGameLevel') || 1;
-    
+    let currentLevel = localStorage.getItem('savedGameLevel') || '1';
+    const numericLevel = parseInt(currentLevel, 10) || 1;
+
     // Select the button using its HTML id attribute
     const startBtn = document.getElementById('start-level-btn');
 
-    if (currentLevel > 1) {
-      startBtn.innerText = "Continue Level " + currentLevel;
+    if (numericLevel > 1) {
+      startBtn.innerText = "Continue Level " + numericLevel;
     } else {
       startBtn.innerText = "Start Level 1";
     }
 
     startBtn.addEventListener('click', () => {
-      // Dynamic routing to Level_1.html (or saved level)
-      window.location.href = `Level_${currentLevel}.html`;
+      if (numericLevel === 1) {
+        window.location.href = 'Level_1:10.html';
+      } else {
+        window.location.href = `Level_${numericLevel}.html`;
+      }
     });
 
     function goToHomeBase() {
