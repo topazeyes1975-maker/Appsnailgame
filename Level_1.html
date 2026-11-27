@@ -389,7 +389,7 @@
                 (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(12, 12); t.needsUpdate = true; },
                 undefined, () => createFallbackTexture('#0f0f2d', '#1a1a40')
             );
-            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.5 });
+            const floorMat = new THREE.StandardMaterial({ map: floorTex, roughness: 0.5 });
             const floorGeo = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
@@ -531,6 +531,7 @@
             });
         }
 
+        // Collectible babies spawning
         function spawnBabies() {
             const positions = [
                 { x: 16.8, z: -16.8 },
