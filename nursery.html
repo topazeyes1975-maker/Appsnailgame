@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sky Snail Nursery</title>
+    <title>The Chaos Before the Savior — Snail Nest Nursery</title>
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Three.js Library -->
@@ -21,27 +21,53 @@
         .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
         .interactive { pointer-events: auto; }
 
-        /* Header Bar: Streaks, Level Progression & Inventory */
+        /* Header Bar: Streaks, Level Progression, Growth & Inventory */
         .header-bar { 
             display: flex; 
             flex-wrap: wrap; 
             justify-content: space-between; 
             align-items: center; 
-            gap: 10px;
-            background: rgba(15, 20, 40, 0.85); 
+            gap: 8px;
+            background: rgba(15, 20, 40, 0.88); 
             backdrop-filter: blur(10px); 
-            padding: 10px 16px; 
+            padding: 10px 14px; 
             border-radius: 16px; 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.12); 
         }
-        .streak-badge { display: flex; align-items: center; gap: 6px; color: #ffb703; font-weight: bold; font-size: 13px; }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .streak-badge { display: flex; align-items: center; gap: 4px; color: #ffb703; font-weight: bold; font-size: 12px; }
         
-        .level-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .level-badge { background: linear-gradient(135deg, #4cc9f0, #4361ee); padding: 3px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; box-shadow: 0 0 10px rgba(76, 201, 240, 0.5); }
+        .level-box { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 150px; }
+        .level-badge { background: linear-gradient(135deg, #4cc9f0, #4361ee); padding: 3px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; box-shadow: 0 0 10px rgba(76, 201, 240, 0.5); }
         .level-title { font-size: 11px; color: #00ffcc; font-weight: 600; text-shadow: 0 0 5px rgba(0,255,204,0.4); text-align: center; }
 
-        .inventory-count { display: flex; gap: 8px; font-size: 12px; }
-        .inv-item { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 16px; white-space: nowrap; }
+        /* Growth Progress Bar */
+        .growth-wrap { width: 140px; height: 6px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; margin-top: 2px; }
+        .growth-fill { height: 100%; width: 20%; background: linear-gradient(90deg, #00ffcc, #4cc9f0); transition: width 0.35s ease; }
+
+        .inventory-count { display: flex; gap: 6px; font-size: 12px; align-items: center; flex-wrap: wrap; }
+        .inv-item { background: rgba(255,255,255,0.1); padding: 4px 9px; border-radius: 16px; white-space: nowrap; }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            top: 76px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background: rgba(15, 25, 50, 0.95);
+            border: 1px solid #00ffcc;
+            color: #00ffcc;
+            padding: 7px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            z-index: 30;
+            pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0, 255, 204, 0.25);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         /* Action Sidebar */
         .action-sidebar { 
@@ -51,19 +77,19 @@
             transform: translateY(-50%); 
             display: flex; 
             flex-direction: column; 
-            gap: 8px; 
-            width: 150px;
+            gap: 7px; 
+            width: 158px;
         }
         .action-btn { 
             background: linear-gradient(135deg, #3a0ca3, #4361ee); 
             color: white; 
-            border: none; 
-            padding: 10px 14px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            padding: 9px 12px; 
             border-radius: 10px; 
             cursor: pointer; 
             font-weight: bold; 
             font-size: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.35); 
             transition: transform 0.2s, background 0.2s; 
             display: flex; 
             align-items: center; 
@@ -74,23 +100,92 @@
         .action-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, #4361ee, #4cc9f0); }
         .action-btn.level-up-btn { background: linear-gradient(135deg, #ffb703, #fb8500); color: #000; }
         .action-btn.level-up-btn:hover { background: linear-gradient(135deg, #ffc300, #ffb703); }
+        .action-btn.secondary-btn { background: rgba(20, 28, 58, 0.9); border-color: rgba(76, 201, 240, 0.4); }
+
+        /* Modals (Song Composer & Sanctuary/Outfit Customizer) */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 8, 18, 0.72);
+            backdrop-filter: blur(6px);
+            z-index: 40;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-card {
+            background: #10162f;
+            border: 1px solid rgba(76, 201, 240, 0.4);
+            border-radius: 18px;
+            padding: 18px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .modal-header h3 { font-size: 16px; color: #00ffcc; }
+        .close-modal { background: rgba(255,255,255,0.1); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-weight: bold; }
+
+        /* Song Composer Grid */
+        .tune-slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 14px; }
+        .tune-slot {
+            background: rgba(255,255,255,0.06);
+            border: 1px dashed rgba(76, 201, 240, 0.5);
+            border-radius: 10px;
+            padding: 10px 4px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #4cc9f0;
+        }
+        .note-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+        .note-btn {
+            background: linear-gradient(135deg, #240046, #5a189a);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            padding: 10px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .note-btn.locked { opacity: 0.35; cursor: not-allowed; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* Customizer Grid */
+        .cust-section { margin-bottom: 14px; }
+        .cust-section label { display: block; font-size: 12px; color: #ffb703; margin-bottom: 6px; font-weight: bold; }
+        .cust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .cust-chip {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 11px;
+            cursor: pointer;
+            color: #fff;
+        }
+        .cust-chip.selected { border-color: #00ffcc; background: rgba(0, 255, 204, 0.16); color: #00ffcc; font-weight: bold; }
 
         /* Bottom Snail Selection Carousel */
         .snail-carousel { 
-            background: rgba(15, 20, 40, 0.85); 
+            background: rgba(15, 20, 40, 0.88); 
             backdrop-filter: blur(10px); 
             padding: 10px; 
             border-radius: 16px; 
             border: 1px solid rgba(255, 255, 255, 0.1); 
             width: 100%; 
-            max-width: 800px; 
+            max-width: 820px; 
             margin: 0 auto; 
             display: flex; 
             gap: 10px; 
             overflow-x: auto; 
             scrollbar-width: thin; 
         }
-        .snail-card { min-width: 100px; height: 85px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: white; padding: 4px; }
+        .snail-card { min-width: 105px; height: 86px; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: white; padding: 4px; }
         .snail-card.active { border-color: #4cc9f0; background: rgba(76, 201, 240, 0.2); transform: scale(1.03); }
         .snail-card.locked { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
         .snail-card .icon { font-size: 20px; }
@@ -98,63 +193,115 @@
         .snail-card .lvl-tag { font-size: 9px; color: #ffb703; font-weight: bold; }
 
         /* Back Button */
-        .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 12px; }
+        .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 10px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 12px; }
 
         /* Mobile Screens Adjustment */
         @media screen and (max-width: 600px) {
-            .header-bar {
-                padding: 8px 10px;
-            }
+            .header-bar { padding: 8px 10px; }
             .action-sidebar {
                 top: auto;
-                bottom: 115px;
+                bottom: 112px;
                 transform: none;
-                right: 12px;
-                width: 130px;
-                gap: 6px;
+                right: 10px;
+                width: 138px;
+                gap: 5px;
             }
-            .action-btn {
-                padding: 8px 10px;
-                font-size: 11px;
-            }
+            .action-btn { padding: 7px 9px; font-size: 11px; }
         }
     </style>
 </head>
 <body>
 
     <div id="viewport"></div>
+    <div id="toast">Welcome to the Snail Nest Nursery!</div>
 
     <div class="ui-layer">
         <!-- Top Header -->
         <div class="header-bar interactive">
-            <a href="index.html" class="back-btn">← Main Menu</a>
-            <div class="streak-badge">
-                🔥 <span id="streak-text">0 Day Streak</span>
+            <div class="header-left">
+                <a href="index.html" class="back-btn">← Menu</a>
+                <div class="streak-badge">🔥 <span id="streak-text">1 Day</span></div>
             </div>
             
-            <!-- Current Level Status -->
+            <!-- Current Level & Growth Status -->
             <div class="level-box">
-                <div class="level-badge">Level <span id="current-level-display">1</span></div>
+                <div class="level-badge">Level <span id="current-level-display">1</span> • Rescued: <span id="rescued-count">3</span></div>
                 <div class="level-title"><span id="snail-name-title">Baby Galactic Snail</span></div>
+                <div class="growth-wrap" title="Snail Growth Progress">
+                    <div class="growth-fill" id="growth-bar"></div>
+                </div>
             </div>
 
             <div class="inventory-count">
-                <div class="inv-item">🍃 Food: <span id="food-count">10</span></div>
-                <div class="inv-item">💧 Water: <span id="water-count">5</span></div>
+                <div class="inv-item">🍃 <span id="food-count">10</span></div>
+                <div class="inv-item">💧 <span id="water-count">5</span></div>
+                <div class="inv-item">✨ <span id="stardust-count">25</span></div>
             </div>
         </div>
 
         <!-- Action Buttons (Right Side) -->
         <div class="action-sidebar interactive">
-            <button class="action-btn level-up-btn" id="btn-complete-lvl">⭐ Complete Level</button>
-            <button class="action-btn" id="btn-sing">🎵 Listen to Snail</button>
-            <button class="action-btn" id="btn-feed">🍃 Feed Plant</button>
-            <button class="action-btn" id="btn-water">🌧️ Water Nursery</button>
+            <button class="action-btn level-up-btn" id="btn-complete-lvl">⭐ Evolve / Level Up</button>
+            <button class="action-btn" id="btn-feed">🍃 Feed Snail (-1)</button>
+            <button class="action-btn" id="btn-water">🌧️ Mist Nest (-1)</button>
+            <button class="action-btn secondary-btn" id="btn-forage">🧺 Forage Leaves</button>
+            <button class="action-btn secondary-btn" id="btn-stellapod">🐍 Stellapod: ON</button>
+            <button class="action-btn secondary-btn" id="btn-composer">🎵 Entrance Tune</button>
+            <button class="action-btn secondary-btn" id="btn-customize">🎨 Nest & Outfits</button>
         </div>
 
         <!-- Bottom Carousel -->
         <div class="snail-carousel interactive" id="snail-list">
             <!-- Dynamically populated via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Modal 1: Musical Entrance Composer -->
+    <div class="modal-backdrop" id="composer-modal">
+        <div class="modal-card interactive">
+            <div class="modal-header">
+                <h3>🎵 Entrance Song Composer</h3>
+                <button class="close-modal" data-close="composer-modal">✕</button>
+            </div>
+            <p style="font-size: 11px; color: #b8c0ff; margin-bottom: 10px;">
+                Tap notes below to build your snail's 6-note entrance fanfare. Higher levels unlock higher cosmic notes!
+            </p>
+            <div class="tune-slots" id="tune-slots"></div>
+            <div class="note-pad" id="note-pad"></div>
+            <div class="modal-actions">
+                <button class="action-btn secondary-btn" style="width:auto;" id="btn-clear-tune">Clear</button>
+                <button class="action-btn" style="width:auto;" id="btn-play-tune">▶ Play Tune</button>
+                <button class="action-btn level-up-btn" style="width:auto;" id="btn-save-tune">Save Tune</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Sanctuary & Outfit Customizer -->
+    <div class="modal-backdrop" id="customize-modal">
+        <div class="modal-card interactive">
+            <div class="modal-header">
+                <h3>🎨 Sanctuary & Outfit Studio</h3>
+                <button class="close-modal" data-close="customize-modal">✕</button>
+            </div>
+            <div class="cust-section">
+                <label>Sanctuary Biome Theme</label>
+                <div class="cust-grid" id="theme-options">
+                    <div class="cust-chip selected" data-theme="cosmic">🌌 Cosmic Reef</div>
+                    <div class="cust-chip" data-theme="moss">🌿 Biolume Moss</div>
+                    <div class="cust-chip" data-theme="amber">☀️ Solar Amber</div>
+                </div>
+            </div>
+            <div class="cust-section">
+                <label>Snail Accessory / Outfit</label>
+                <div class="cust-grid" id="outfit-options">
+                    <div class="cust-chip selected" data-outfit="none">🐚 Natural Shell</div>
+                    <div class="cust-chip" data-outfit="crown">👑 Starlight Crown</div>
+                    <div class="cust-chip" data-outfit="aura">💫 Nebula Ring</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="action-btn level-up-btn" style="width:auto;" data-close="customize-modal">Done</button>
+            </div>
         </div>
     </div>
 
@@ -164,171 +311,391 @@
         const supabaseKey = 'sb_publishable_0j0PaDVT_pXMJawcf2W8fQ_Lz9B4KoW';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+        // --- GAME STATE ---
+        const state = {
+            playerLevel: 1,
+            food: 10,
+            water: 5,
+            stardust: 25,
+            growth: 20, // 0 to 100 -> auto levels up at 100
+            streak: 1,
+            stellapodFollow: true,
+            nestTheme: 'cosmic',
+            equippedOutfit: 'none',
+            entranceTune: ['C4', 'E4', 'G4', 'B4', 'C5', 'G4']
+        };
+
+        // Toast Helper
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.innerText = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+        }
+
+        // --- WEB AUDIO SYNTHESIZER (Entrance Tunes & SFX) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const noteFrequencies = {
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'G4': 392.00,
+            'A4': 440.00, 'B4': 493.88, 'C5': 523.25, 'E5': 659.25
+        };
+        const noteUnlockLevels = {
+            'C4': 1, 'D4': 1, 'E4': 1, 'G4': 1,
+            'A4': 2, 'B4': 2, 'C5': 3, 'E5': 3
+        };
+
+        function playTone(note, duration = 0.25, delay = 0) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const freq = noteFrequencies[note];
+            if (!freq) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+
+            gain.gain.setValueAtTime(0.001, audioCtx.currentTime + delay);
+            gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + delay + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + delay);
+            osc.stop(audioCtx.currentTime + delay + duration + 0.02);
+        }
+
+        function playEntranceTune() {
+            state.entranceTune.forEach((note, idx) => {
+                playTone(note, 0.24, idx * 0.18);
+            });
+            // Joyful snail hop synced with tune
+            let hops = 0;
+            const interval = setInterval(() => {
+                snailGroup.position.y = (hops % 2 === 0) ? 0.35 : 0;
+                hops++;
+                if (hops >= state.entranceTune.length * 2) {
+                    clearInterval(interval);
+                    snailGroup.position.y = 0;
+                }
+            }, 140);
+        }
+
         // --- THREE.JS SCENE SETUP ---
         const container = document.getElementById('viewport');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0b0d19, 0.03);
+        scene.fog = new THREE.FogExp2(0x0b0d19, 0.028);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 3, 12);
-        camera.lookAt(0, -0.5, 0);
+        camera.position.set(0, 4.2, 12.5);
+        camera.lookAt(0, -0.3, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.devicePixelRatio);
         renderer.shadowMap.enabled = true;
         container.appendChild(renderer.domElement);
 
         const gltfLoader = new THREE.GLTFLoader();
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.5);
+        const dirLight = new THREE.DirectionalLight(0x00ffcc, 1.4);
         dirLight.position.set(5, 10, 7);
         scene.add(dirLight);
 
-        const plantGlowLight = new THREE.PointLight(0x4cc9f0, 2, 10);
-        plantGlowLight.position.set(0, 1, 0);
+        const plantGlowLight = new THREE.PointLight(0x4cc9f0, 2.2, 12);
+        plantGlowLight.position.set(0, 1.5, 0);
         scene.add(plantGlowLight);
+
+        // Starfield Backdrop
+        const starGeo = new THREE.BufferGeometry();
+        const starVerts = [];
+        for (let i = 0; i < 350; i++) {
+            starVerts.push((Math.random() - 0.5) * 60, Math.random() * 30 - 5, (Math.random() - 0.5) * 60 - 10);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
+        const starPoints = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12 }));
+        scene.add(starPoints);
 
         function alignModelToGround(model) {
             const box = new THREE.Box3().setFromObject(model);
             model.position.y -= box.min.y;
         }
 
-        // --- COSMIC NURSERY PLANT MODEL ---
+        // --- COSMIC NURSERY SANCTUARY PLATFORM ---
         const plantGroup = new THREE.Group();
         plantGroup.position.y = -2;
         scene.add(plantGroup);
 
-        const leafGeo = new THREE.CylinderGeometry(1.8, 1.5, 0.2, 32);
-        const leafMat = new THREE.MeshStandardMaterial({ color: 0x48cae4, emissive: 0x0077b6, emissiveIntensity: 0.2 });
+        const leafGeo = new THREE.CylinderGeometry(2.8, 2.3, 0.28, 36);
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x48cae4, emissive: 0x0077b6, emissiveIntensity: 0.25, roughness: 0.4 });
         const leaf = new THREE.Mesh(leafGeo, leafMat);
         leaf.position.y = 2;
         plantGroup.add(leaf);
+
+        // Glowing Nest Rim Crystals
+        const crystalGroup = new THREE.Group();
+        crystalGroup.position.y = 2.15;
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const cMesh = new THREE.Mesh(
+                new THREE.ConeGeometry(0.14, 0.45, 5),
+                new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.5 })
+            );
+            cMesh.position.set(Math.cos(angle) * 2.55, 0.15, Math.sin(angle) * 2.55);
+            cMesh.rotation.z = (Math.random() - 0.5) * 0.3;
+            crystalGroup.add(cMesh);
+        }
+        plantGroup.add(crystalGroup);
 
         gltfLoader.load('spire_model.glb', function (gltf) {
             const baseModel = gltf.scene;
             baseModel.scale.set(1.2, 1.2, 1.2);
             alignModelToGround(baseModel);
             plantGroup.add(baseModel);
+        }, undefined, function () {
+            // Silent fallback if local GLB isn't present during preview
         });
 
-        // --- SNAIL LEVEL EVOLUTION SYSTEM ---
+        // --- PROCEDURAL FALLBACK SNAIL BUILDER (Used if GLB is loading or missing) ---
+        function createProceduralSnail(shellColor = 0x7209b7, bodyColor = 0x4cc9f0, scale = 1) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(
+                new THREE.CapsuleGeometry ? new THREE.SphereGeometry(0.45, 16, 12) : new THREE.SphereGeometry(0.45, 16, 12),
+                new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.3 })
+            );
+            body.scale.set(1.5, 0.55, 0.7);
+            body.position.y = 0.22;
+            group.add(body);
+
+            const shell = new THREE.Mesh(
+                new THREE.TorusKnotGeometry(0.28, 0.11, 48, 8, 2, 3),
+                new THREE.MeshStandardMaterial({ color: shellColor, emissive: shellColor, emissiveIntensity: 0.25, metalness: 0.3, roughness: 0.2 })
+            );
+            shell.position.set(-0.1, 0.52, 0);
+            group.add(shell);
+
+            // Eye stalks
+            [-0.14, 0.14].forEach(zOffset => {
+                const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), new THREE.MeshStandardMaterial({ color: bodyColor }));
+                stalk.position.set(0.48, 0.45, zOffset);
+                stalk.rotation.z = -0.3;
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                eye.position.set(0.53, 0.6, zOffset);
+                group.add(stalk, eye);
+            });
+
+            group.scale.set(scale, scale, scale);
+            return group;
+        }
+
+        // --- SNAIL LEVEL EVOLUTION SYSTEM & OUTFIT ATTACHMENT ---
         const snailGroup = new THREE.Group();
-        snailGroup.position.set(-1, 0, 0);
+        snailGroup.position.set(0, 0.14, 0);
         scene.add(snailGroup);
 
-        let activeSnailMesh = null;
-        let playerLevel = 1; // Default level
+        const outfitAnchor = new THREE.Group();
+        snailGroup.add(outfitAnchor);
 
-        // Each completed level maps to a specific 3D snail evolution tier!
+        let activeSnailMesh = null;
+
         const levelSnailTiers = [
             { 
                 levelRequired: 1, 
                 name: 'Baby Galactic Snail', 
                 icon: '🐌', 
                 model: 'Meshy_AI_Galactic Snail_1785475444_image-to-3d-texture-compressed.glb', 
-                scale: 0.35 
+                scale: 0.38,
+                fallbackColors: [0x7209b7, 0x4cc9f0]
             },
             { 
                 levelRequired: 2, 
                 name: 'Astral Knight Snail', 
                 icon: '🐚', 
                 model: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', 
-                scale: 0.5 
+                scale: 0.52,
+                fallbackColors: [0xf72585, 0x4895ef]
+            },
+            { 
+                levelRequired: 3, 
+                name: 'Celestial Sovereign Snail', 
+                icon: '👑', 
+                model: 'Meshy_AI_Astral Knight of the Cosmic Shell_1781887443_image-to-3d-texture-compressed.glb', 
+                scale: 0.68,
+                fallbackColors: [0xffb703, 0x00ffcc]
             }
         ];
 
-        function loadSnailModel(tierData) {
-            if (activeSnailMesh) {
-                snailGroup.remove(activeSnailMesh);
+        function applyOutfitVisual(outfitKey) {
+            while (outfitAnchor.children.length) outfitAnchor.remove(outfitAnchor.children[0]);
+
+            if (outfitKey === 'crown') {
+                const crown = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.22, 0.16, 0.16, 6),
+                    new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb703, emissiveIntensity: 0.5, metalness: 0.8 })
+                );
+                crown.position.set(0.25, 0.95, 0);
+                outfitAnchor.add(crown);
+            } else if (outfitKey === 'aura') {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.85, 0.03, 12, 36),
+                    new THREE.MeshBasicMaterial({ color: 0x00ffcc })
+                );
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = 0.25;
+                outfitAnchor.add(ring);
             }
-
-            gltfLoader.load(tierData.model, function (gltf) {
-                activeSnailMesh = gltf.scene;
-                activeSnailMesh.scale.set(tierData.scale, tierData.scale, tierData.scale);
-                alignModelToGround(activeSnailMesh);
-                snailGroup.add(activeSnailMesh);
-            });
-
-            // Update UI
-            document.getElementById('current-level-display').innerText = playerLevel;
-            document.getElementById('snail-name-title').innerText = tierData.name;
         }
 
-        // --- SUPABASE SAVE & LOAD ---
-        async function loadUserProgress() {
+        function loadSnailModel(tierData) {
+            if (activeSnailMesh) snailGroup.remove(activeSnailMesh);
+
+            // Show procedural snail immediately so stage is never empty
+            activeSnailMesh = createProceduralSnail(tierData.fallbackColors[0], tierData.fallbackColors[1], tierData.scale * 1.6);
+            snailGroup.add(activeSnailMesh);
+
+            // Attempt loading custom GLB model
+            gltfLoader.load(tierData.model, function (gltf) {
+                if (activeSnailMesh) snailGroup.remove(activeSnailMesh);
+                activeSnailMesh = gltf.scene;
+                const growthBoost = 1 + (state.growth / 250);
+                activeSnailMesh.scale.set(tierData.scale * growthBoost, tierData.scale * growthBoost, tierData.scale * growthBoost);
+                alignModelToGround(activeSnailMesh);
+                snailGroup.add(activeSnailMesh);
+            }, undefined, function () {
+                // Keep procedural fallback if GLB file isn't found in local path
+            });
+
+            applyOutfitVisual(state.equippedOutfit);
+            updateUI();
+        }
+
+        // --- STELLAPOD RESCUED BABY SNAIL TRAIL ---
+        const babySnails = [];
+        const babyColors = [0xff006e, 0x00f5d4, 0xffbe0b];
+        for (let i = 0; i < 3; i++) {
+            const baby = createProceduralSnail(babyColors[i], 0xbde0fe, 0.36);
+            baby.position.set(-1.2 - i * 0.55, 0.14, 0.8);
+            scene.add(baby);
+            babySnails.push({ mesh: baby, angle: i * 1.1 });
+        }
+
+        // --- BIOME THEME SWITCHER ---
+        function applyNestTheme(theme) {
+            state.nestTheme = theme;
+            if (theme === 'cosmic') {
+                scene.fog.color.setHex(0x0b0d19);
+                renderer.setClearColor(0x0b0d19);
+                leafMat.color.setHex(0x48cae4);
+                leafMat.emissive.setHex(0x0077b6);
+                plantGlowLight.color.setHex(0x4cc9f0);
+            } else if (theme === 'moss') {
+                scene.fog.color.setHex(0x071a12);
+                renderer.setClearColor(0x071a12);
+                leafMat.color.setHex(0x2ec4b6);
+                leafMat.emissive.setHex(0x0b523b);
+                plantGlowLight.color.setHex(0x00ffcc);
+            } else if (theme === 'amber') {
+                scene.fog.color.setHex(0x1f1209);
+                renderer.setClearColor(0x1f1209);
+                leafMat.color.setHex(0xffb703);
+                leafMat.emissive.setHex(0x9b4d00);
+                plantGlowLight.color.setHex(0xff9f1c);
+            }
+        }
+
+        // --- UI & PERSISTENCE (Supabase + LocalStorage Fallback) ---
+        function updateUI() {
+            const currentTier = levelSnailTiers[Math.min(state.playerLevel - 1, levelSnailTiers.length - 1)];
+            document.getElementById('current-level-display').innerText = state.playerLevel;
+            document.getElementById('snail-name-title').innerText = currentTier.name;
+            document.getElementById('food-count').innerText = state.food;
+            document.getElementById('water-count').innerText = state.water;
+            document.getElementById('stardust-count').innerText = state.stardust;
+            document.getElementById('growth-bar').style.width = `${Math.min(state.growth, 100)}%`;
+            document.getElementById('streak-text').innerText = `${state.streak} Day Streak`;
+        }
+
+        async function saveProgress() {
+            localStorage.setItem('skySnailNurseryState', JSON.stringify(state));
             try {
                 const { data: { user } } = await supabaseClient.auth.getUser();
                 if (user) {
-                    const { data, error } = await supabaseClient
+                    await supabaseClient.from('user_nursery').upsert({ 
+                        user_id: user.id, 
+                        current_level: state.playerLevel,
+                        updated_at: new Date()
+                    });
+                }
+            } catch (err) {
+                console.log("Saved locally (Supabase offline):", err);
+            }
+        }
+
+        async function loadProgress() {
+            const savedLocal = localStorage.getItem('skySnailNurseryState');
+            if (savedLocal) {
+                Object.assign(state, JSON.parse(savedLocal));
+            }
+            try {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (user) {
+                    const { data } = await supabaseClient
                         .from('user_nursery')
                         .select('current_level')
                         .eq('user_id', user.id)
                         .single();
-
-                    if (data && data.current_level) {
-                        playerLevel = data.current_level;
-                        const currentTier = levelSnailTiers[Math.min(playerLevel - 1, levelSnailTiers.length - 1)];
-                        loadSnailModel(currentTier);
-                        renderCarousel();
-                    }
+                    if (data && data.current_level) state.playerLevel = data.current_level;
                 }
             } catch (err) {
-                console.log("Loading progress offline or non-authenticated session:", err);
+                console.log("Offline session active.");
             }
+            applyNestTheme(state.nestTheme);
+            const tier = levelSnailTiers[Math.min(state.playerLevel - 1, levelSnailTiers.length - 1)];
+            loadSnailModel(tier);
+            renderCarousel();
         }
 
-        async function saveUserProgress(newLevel) {
-            try {
-                const { data: { user } } = await supabaseClient.auth.getUser();
-                if (user) {
-                    await supabaseClient
-                        .from('user_nursery')
-                        .upsert({ 
-                            user_id: user.id, 
-                            current_level: newLevel,
-                            updated_at: new Date()
-                        });
-                }
-            } catch (err) {
-                console.log("Could not save to Supabase:", err);
-            }
-        }
-
-        // Called when player completes a level
+        // --- EVOLUTION & CARE ACTIONS ---
         function completeLevel() {
-            if (playerLevel < levelSnailTiers.length) {
-                playerLevel++;
-                
-                // Flash glow effect & hop
-                plantGlowLight.color.setHex(0x00ffcc);
-                plantGlowLight.intensity = 5.0;
-                
-                let hops = 0;
-                const interval = setInterval(() => {
-                    snailGroup.position.y = (hops % 2 === 0) ? 0.5 : 0;
-                    hops++;
-                    if (hops > 8) { 
-                        clearInterval(interval); 
-                        snailGroup.position.y = 0;
-                        plantGlowLight.color.setHex(0x4cc9f0);
-                        plantGlowLight.intensity = 2.0;
-                    }
-                }, 150);
+            if (state.playerLevel < levelSnailTiers.length) {
+                state.playerLevel++;
+                state.growth = 15;
+                state.stardust += 15;
 
-                // Evolve active model to match newly unlocked level tier
-                const currentTier = levelSnailTiers[playerLevel - 1];
+                plantGlowLight.color.setHex(0x00ffcc);
+                plantGlowLight.intensity = 5.5;
+                setTimeout(() => applyNestTheme(state.nestTheme), 1200);
+
+                const currentTier = levelSnailTiers[state.playerLevel - 1];
                 loadSnailModel(currentTier);
                 renderCarousel();
-
-                // Save to Supabase
-                saveUserProgress(playerLevel);
+                playEntranceTune();
+                showToast(`✨ Evolved into ${currentTier.name}! New musical notes unlocked!`);
+                saveProgress();
             } else {
-                alert("Max Snail Evolution Tier Reached!");
+                state.stardust += 20;
+                playEntranceTune();
+                showToast("🌟 Max Evolution Reached! +20 Stardust Bonus!");
+                updateUI();
+                saveProgress();
+            }
+        }
+
+        function addGrowth(amount) {
+            state.growth += amount;
+            if (activeSnailMesh) {
+                activeSnailMesh.scale.multiplyScalar(1.04);
+            }
+            if (state.growth >= 100) {
+                completeLevel();
+            } else {
+                updateUI();
+                saveProgress();
             }
         }
 
@@ -337,8 +704,8 @@
             const carousel = document.getElementById('snail-list');
             carousel.innerHTML = '';
             levelSnailTiers.forEach((tier) => {
-                const isUnlocked = playerLevel >= tier.levelRequired;
-                const isCurrent = playerLevel === tier.levelRequired;
+                const isUnlocked = state.playerLevel >= tier.levelRequired;
+                const isCurrent = state.playerLevel === tier.levelRequired;
 
                 const card = document.createElement('div');
                 card.className = `snail-card ${isCurrent ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}`;
@@ -353,52 +720,186 @@
                         document.querySelectorAll('.snail-card').forEach(c => c.classList.remove('active'));
                         card.classList.add('active');
                         loadSnailModel(tier);
+                        playEntranceTune();
                     });
                 }
-
                 carousel.appendChild(card);
             });
         }
 
-        // Initial Setup
-        renderCarousel();
-        loadSnailModel(levelSnailTiers[0]);
-        loadUserProgress();
+        // --- SONG COMPOSER UI LOGIC ---
+        function renderComposer() {
+            const slotsEl = document.getElementById('tune-slots');
+            slotsEl.innerHTML = '';
+            for (let i = 0; i < 6; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'tune-slot';
+                slot.innerText = state.entranceTune[i] || '—';
+                slotsEl.appendChild(slot);
+            }
 
-        // --- RAIN SYSTEM (Adjusted to fall right over nursery platform) ---
-        const rainCount = 200;
+            const padEl = document.getElementById('note-pad');
+            padEl.innerHTML = '';
+            Object.keys(noteFrequencies).forEach(note => {
+                const reqLvl = noteUnlockLevels[note];
+                const unlocked = state.playerLevel >= reqLvl;
+                const btn = document.createElement('button');
+                btn.className = `note-btn ${!unlocked ? 'locked' : ''}`;
+                btn.innerText = unlocked ? `♪ ${note}` : `🔒 Lvl ${reqLvl}`;
+                if (unlocked) {
+                    btn.addEventListener('click', () => {
+                        playTone(note, 0.25, 0);
+                        if (state.entranceTune.length >= 6) state.entranceTune.shift();
+                        state.entranceTune.push(note);
+                        renderComposer();
+                    });
+                }
+                padEl.appendChild(btn);
+            });
+        }
+
+        // --- RAIN SYSTEM ---
+        const rainCount = 220;
         const rainGeo = new THREE.BufferGeometry();
         const rainPositions = new Float32Array(rainCount * 3);
-
-        for(let i = 0; i < rainCount * 3; i += 3) {
-            rainPositions[i] = (Math.random() - 0.5) * 4;
-            rainPositions[i+1] = Math.random() * 2.8 + 0.2; // Spawn bounds between 0.2 and 3.0 height
-            rainPositions[i+2] = (Math.random() - 0.5) * 4;
+        for (let i = 0; i < rainCount * 3; i += 3) {
+            rainPositions[i] = (Math.random() - 0.5) * 5;
+            rainPositions[i + 1] = Math.random() * 2.8 + 0.2;
+            rainPositions[i + 2] = (Math.random() - 0.5) * 5;
         }
         rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
-        const rainMat = new THREE.PointsMaterial({ color: 0x4cc9f0, size: 0.05, transparent: true, opacity: 0 });
+        const rainMat = new THREE.PointsMaterial({ color: 0x4cc9f0, size: 0.06, transparent: true, opacity: 0 });
         const rainSystem = new THREE.Points(rainGeo, rainMat);
         scene.add(rainSystem);
 
         let isRaining = false;
+        let clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
 
-            plantGroup.rotation.y += 0.005;
+            plantGroup.rotation.y += 0.003;
 
-            if(isRaining) {
+            // Active Snail gentle sanctuary glide
+            snailGroup.position.x = Math.cos(t * 0.6) * 0.95;
+            snailGroup.position.z = Math.sin(t * 0.6) * 0.95;
+            snailGroup.rotation.y = -t * 0.6;
+
+            // Stellapod Baby Trail vs Free Roam
+            babySnails.forEach((b, idx) => {
+                if (state.stellapodFollow) {
+                    const trailTime = t * 0.6 - (idx + 1) * 0.45;
+                    b.mesh.position.x = Math.cos(trailTime) * 0.95;
+                    b.mesh.position.z = Math.sin(trailTime) * 0.95;
+                    b.mesh.rotation.y = -trailTime;
+                } else {
+                    const roamTime = t * 0.4 + b.angle;
+                    b.mesh.position.x = Math.cos(roamTime) * (1.5 + idx * 0.2);
+                    b.mesh.position.z = Math.sin(roamTime * 1.2) * (1.5 + idx * 0.2);
+                    b.mesh.rotation.y = -roamTime;
+                }
+            });
+
+            if (isRaining) {
                 const positions = rainSystem.geometry.attributes.position.array;
-                for(let i = 1; i < rainCount * 3; i += 3) {
+                for (let i = 1; i < rainCount * 3; i += 3) {
                     positions[i] -= 0.08;
-                    // Reset rain back near the leaf level (Y = 3.0) when it hits the ground platform
-                    if(positions[i] < -1.5) positions[i] = 3.0;
+                    if (positions[i] < -1.5) positions[i] = 3.0;
                 }
                 rainSystem.geometry.attributes.position.needsUpdate = true;
             }
 
             renderer.render(scene, camera);
         }
-        animate();
+
+        // --- INTERACTION HANDLERS ---
+        document.getElementById('btn-complete-lvl').addEventListener('click', completeLevel);
+
+        document.getElementById('btn-feed').addEventListener('click', () => {
+            if (state.food <= 0) return showToast("🍃 Out of leaves! Tap 'Forage Leaves' to gather more.");
+            state.food--;
+            leafMat.emissiveIntensity = 1.0;
+            setTimeout(() => leafMat.emissiveIntensity = 0.25, 800);
+            playTone('E4', 0.15, 0);
+            playTone('G4', 0.2, 0.12);
+            showToast("🍃 Fed your snail! +25% Growth");
+            addGrowth(25);
+        });
+
+        document.getElementById('btn-water').addEventListener('click', () => {
+            if (state.water <= 0) return showToast("💧 Out of dew drops! Tap 'Forage Leaves' to collect rain.");
+            state.water--;
+            isRaining = true;
+            rainMat.opacity = 0.85;
+            playTone('G4', 0.15, 0);
+            playTone('B4', 0.22, 0.12);
+            showToast("🌧️ Misting the sanctuary! +25% Growth");
+            addGrowth(25);
+            setTimeout(() => { isRaining = false; rainMat.opacity = 0; }, 2800);
+        });
+
+        document.getElementById('btn-forage').addEventListener('click', () => {
+            state.food += 3;
+            state.water += 2;
+            playTone('C4', 0.15, 0);
+            showToast("🧺 Gathered +3 Cosmic Leaves & +2 Dew Drops!");
+            updateUI();
+            saveProgress();
+        });
+
+        document.getElementById('btn-stellapod').addEventListener('click', (e) => {
+            state.stellapodFollow = !state.stellapodFollow;
+            e.target.innerText = state.stellapodFollow ? '🐍 Stellapod: ON' : '🌿 Free Roam: ON';
+            showToast(state.stellapodFollow ? "🐍 Baby snails formed a Stellapod trail!" : "🌿 Baby snails are roaming the nest freely!");
+        });
+
+        // Modals Open/Close
+        document.getElementById('btn-composer').addEventListener('click', () => {
+            renderComposer();
+            document.getElementById('composer-modal').classList.add('open');
+        });
+        document.getElementById('btn-customize').addEventListener('click', () => {
+            document.getElementById('customize-modal').classList.add('open');
+        });
+        document.querySelectorAll('[data-close]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById(btn.getAttribute('data-close')).classList.remove('open');
+            });
+        });
+
+        // Composer Buttons
+        document.getElementById('btn-clear-tune').addEventListener('click', () => {
+            state.entranceTune = [];
+            renderComposer();
+        });
+        document.getElementById('btn-play-tune').addEventListener('click', playEntranceTune);
+        document.getElementById('btn-save-tune').addEventListener('click', () => {
+            saveProgress();
+            playEntranceTune();
+            document.getElementById('composer-modal').classList.remove('open');
+            showToast("🎵 Entrance song saved!");
+        });
+
+        // Customizer Chips
+        document.querySelectorAll('#theme-options .cust-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('#theme-options .cust-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+                applyNestTheme(chip.getAttribute('data-theme'));
+                saveProgress();
+            });
+        });
+
+        document.querySelectorAll('#outfit-options .cust-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('#outfit-options .cust-chip').forEach(c => c.classList.remove('selected'));
+                chip.classList.add('selected');
+                state.equippedOutfit = chip.getAttribute('data-outfit');
+                applyOutfitVisual(state.equippedOutfit);
+                saveProgress();
+            });
+        });
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -406,32 +907,9 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // --- INTERACTION HANDLERS ---
-        document.getElementById('btn-complete-lvl').addEventListener('click', completeLevel);
-
-        document.getElementById('btn-feed').addEventListener('click', () => {
-            leafMat.emissiveIntensity = 1.0;
-            setTimeout(() => leafMat.emissiveIntensity = 0.2, 1000);
-        });
-
-        document.getElementById('btn-water').addEventListener('click', () => {
-            isRaining = true;
-            rainMat.opacity = 0.8;
-            setTimeout(() => {
-                isRaining = false;
-                rainMat.opacity = 0;
-            }, 3000);
-        });
-
-        document.getElementById('btn-sing').addEventListener('click', () => {
-            let hops = 0;
-            const interval = setInterval(() => {
-                snailGroup.position.y = (hops % 2 === 0) ? 0.3 : 0;
-                hops++;
-                if(hops > 6) { clearInterval(interval); snailGroup.position.y = 0; }
-            }, 200);
-        });
+        // Start
+        loadProgress();
+        animate();
     </script>
 </body>
 </html>
-
