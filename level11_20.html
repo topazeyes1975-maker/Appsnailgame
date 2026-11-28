@@ -319,7 +319,7 @@
                 <div id="slide-msg">SLIDE BOOST!</div>
                 <div id="trap-msg">TRAPDOOR SNAPPED SHUT!</div>
                 <div id="distract-msg">CLANG! GUARDS LURED!</div>
-                <div id="hit-feedback-msg">HIT! GUARD RESET TO LVL 1!</div>
+                <div id="hit-feedback-msg">1-HIT KO! GUARD RESET TO LVL 1!</div>
                 <button class="hud-btn" id="btn-toggle-brain" onclick="toggleBrainInspector()">NEURAL SCAN: OFF</button>
                 <div id="neural-inspector"></div>
             </div>
@@ -340,7 +340,7 @@
         <div id="action-zone">
             <div id="btn-swing">
                 <span>HIT / SWING</span>
-                <span style="font-size:10px; color:#ffd6eb;">ATK + LURE</span>
+                <span style="font-size:10px; color:#ffd6eb;">1-HIT KO + LURE</span>
             </div>
         </div>
     </div>
@@ -358,6 +358,7 @@
         // =========================================================================
         const MIN_LEVEL = 11;
         const MAX_LEVEL = 20;
+        const START_FILE_URL = 'index.html';
 
         const ASSETS = {
             wallTex: '1787589407750~2.jpg',
@@ -374,19 +375,19 @@
         const CELL_SIZE = 2.8;
         const gridOffset = (MAZE_SIZE * CELL_SIZE) / 2 - CELL_SIZE / 2;
 
-        const BASE_SPEED = 8.0;
+        const BASE_SPEED = 8.4;
         const SLIDE_BOOST_SPEED = 16.5;
         const SLIDE_DRAG_SPEED = 3.2;
-        const GUARD_PATROL_SPEED = 2.5;
-        const GUARD_CHASE_SPEED = 4.7;
-        const GUARD_INVESTIGATE_SPEED = 4.0;
-        const ROT_SPEED = 2.5;
-        const GUARD_SIGHT_RANGE = 20;
-        const SWING_HIT_RANGE = 2.8;
-        const SWING_HEAR_RANGE = 12.0;
-        const SWING_COOLDOWN_MS = 550;
+        const GUARD_PATROL_SPEED = 2.2;
+        const GUARD_CHASE_SPEED = 3.9;
+        const GUARD_INVESTIGATE_SPEED = 3.6;
+        const ROT_SPEED = 2.6;
+        const GUARD_SIGHT_RANGE = 16.5;
+        const SWING_HIT_RANGE = 3.4;
+        const SWING_HEAR_RANGE = 12.5;
+        const SWING_COOLDOWN_MS = 450;
+        const SPAWN_GRACE_SECONDS = 2.0;
 
-        // Open, interconnected 15x15 arena-maze so trapdoors and sliding floors always have valid routes
         const BASE_MAZE_11_20 = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
@@ -405,8 +406,6 @@
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         ];
 
-        // Direction vectors in world X/Z:
-        // N = -Z (0, -1), S = +Z (0, +1), E = +X (+1, 0), W = -X (-1, 0)
         const DIR_VECS = {
             N: { x: 0, z: -1 },
             S: { x: 0, z: 1 },
@@ -414,11 +413,6 @@
             W: { x: -1, z: 0 }
         };
 
-        // Trapdoors:
-        // - oneWayEntry: movement direction ('N','S','E','W') that triggers the trapdoor to snap shut AFTER crossing it.
-        // - safeEntry: movement direction that passes through WITHOUT snapping shut.
-        // Once closed, neither player nor guards can pass through that tile for the rest of the level.
-        // Placed on optional side-spurs/loops so main paths to babies & home base remain completable.
         function getTrapdoorsForLevel(lvl) {
             const presets = [
                 [
@@ -444,9 +438,6 @@
             }));
         }
 
-        // Sliding floors:
-        // - dir: 'N', 'S', 'E', 'W'
-        // Moving along `dir` boosts speed to SLIDE_BOOST_SPEED; moving opposite to `dir` slows to SLIDE_DRAG_SPEED.
         function getSlidesForLevel(lvl) {
             const presets = [
                 [
@@ -477,8 +468,9 @@
         let currentLevel = MIN_LEVEL;
         let scene, camera, renderer, clock;
         let snailGroup, idleMeshGroup, swingMeshGroup, swingArcMesh, bellGroup, homeBaseGroup;
-        let bellVelocity = { x: 3.1, z: 2.3 };
+        let bellVelocity = { x: 2.7, z: 2.1 };
         let isFrozen = false, freezeTimer = 0;
+        let spawnGraceTimer = SPAWN_GRACE_SECONDS;
         let homeCount = 0;
         let totalBabiesForLevel = 4;
         let playerHealth = 100;
@@ -489,7 +481,7 @@
         let swingAnimTimer = 0;
         let brainInspectorOpen = false;
         let guardCounter = 0;
-        let currentSlideState = 'NONE'; // 'BOOST', 'DRAG', 'NONE'
+        let currentSlideState = 'NONE';
 
         let moveFlags = { up: false, down: false, left: false, right: false };
         let babies = [], guards = [], projectiles = [], walls = [], wallMeshes = [], levelProps = [];
@@ -497,13 +489,12 @@
         const homeBasePos = gridToWorld(13, 1);
 
         const tempPlayerBox = new THREE.Box3();
+        const tempSegment = new THREE.Line3();
+        const tempClosestPoint = new THREE.Vector3();
         const raycaster = new THREE.Raycaster();
         const gltfLoader = new THREE.GLTFLoader();
         const textureLoader = new THREE.TextureLoader();
 
-        // =========================================================================
-        // NEURAL BRAIN (2 -> 8 -> 1 tanh/sigmoid) & RANK MIXING
-        // =========================================================================
         function sigmoid(z) {
             return 1 / (1 + Math.exp(-Math.max(-20, Math.min(20, z))));
         }
@@ -561,14 +552,11 @@
         }
 
         function getLevelConfig(lvl) {
-            // Level 11 has 4 babies, scaling up by +1 each level to 13 babies at Level 20
             const babyCount = 4 + (lvl - MIN_LEVEL);
-
-            // Mix of Educated (3), Paranoid (2), and Newbie (1) guards
             const totalGuards = Math.min(6, 4 + Math.floor((lvl - MIN_LEVEL) / 3));
             const ranks = [];
             for (let i = 0; i < totalGuards; i++) {
-                if (i === totalGuards - 1) ranks.push(1); // fresh recruit stays Level 1
+                if (i === totalGuards - 1) ranks.push(1);
                 else if (i % 2 === 0) ranks.push(3);
                 else ranks.push(2);
             }
@@ -580,9 +568,6 @@
             };
         }
 
-        // =========================================================================
-        // GRID, TRAPDOORS & SLIDING FLOOR HELPERS
-        // =========================================================================
         function gridToWorld(r, c) {
             return {
                 x: c * CELL_SIZE - gridOffset,
@@ -633,9 +618,6 @@
             return dz >= 0 ? 'S' : 'N';
         }
 
-        // =========================================================================
-        // INITIALIZATION & LEVEL LOADING
-        // =========================================================================
         function init() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
@@ -660,7 +642,15 @@
             createPlayer();
             spawnHomeBase();
             spawnLibertyBell();
-            loadLevel(MIN_LEVEL, true);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const carriedHealth = parseInt(urlParams.get('health'), 10);
+            if (!isNaN(carriedHealth) && carriedHealth > 0) {
+                playerHealth = Math.min(100, carriedHealth);
+                loadLevel(MIN_LEVEL, false);
+            } else {
+                loadLevel(MIN_LEVEL, true);
+            }
 
             bindDPad();
             bindSwingAction();
@@ -703,6 +693,7 @@
             if (resetHealth) playerHealth = 100;
             isFrozen = false;
             freezeTimer = 0;
+            spawnGraceTimer = SPAWN_GRACE_SECONDS;
             isGameOver = false;
             levelWon = false;
             currentSlideState = 'NONE';
@@ -802,7 +793,6 @@
                 pad.rotation.x = -Math.PI / 2;
                 group.add(pad);
 
-                // Chevron arrow indicating boost direction
                 const arrow = new THREE.Mesh(
                     new THREE.ConeGeometry(0.45, 1.0, 3),
                     new THREE.MeshBasicMaterial({ color: 0x7dd3fc })
@@ -838,7 +828,6 @@
                 frame.rotation.x = -Math.PI / 2;
                 group.add(frame);
 
-                // Hinged hatch / barrier that rises when snapped shut
                 const flap = new THREE.Mesh(
                     new THREE.BoxGeometry(CELL_SIZE * 0.82, 1.8, 0.25),
                     new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x550000 })
@@ -918,7 +907,7 @@
             snailGroup.add(swingMeshGroup);
 
             swingArcMesh = new THREE.Mesh(
-                new THREE.RingGeometry(0.9, 2.55, 28, 1, -Math.PI * 0.45, Math.PI * 0.9),
+                new THREE.RingGeometry(0.9, 3.2, 28, 1, -Math.PI * 0.55, Math.PI * 1.1),
                 new THREE.MeshBasicMaterial({
                     color: 0xff5ca8,
                     side: THREE.DoubleSide,
@@ -931,10 +920,10 @@
             swingMeshGroup.add(swingArcMesh);
 
             const strikeBlade = new THREE.Mesh(
-                new THREE.BoxGeometry(0.25, 0.25, 1.6),
+                new THREE.BoxGeometry(0.28, 0.28, 1.85),
                 new THREE.MeshBasicMaterial({ color: 0x00ffcc })
             );
-            strikeBlade.position.set(0.7, 0.65, 0.7);
+            strikeBlade.position.set(0.75, 0.65, 0.75);
             swingMeshGroup.add(strikeBlade);
 
             gltfLoader.load(ASSETS.playerModel, (gltf) => {
@@ -978,7 +967,6 @@
         }
 
         function spawnBabiesForLevel(count) {
-            // Guaranteed open cells across the grid (none on closed trapdoors or home base)
             const openSpots = [
                 { r: 1, c: 13 },
                 { r: 13, c: 13 },
@@ -1022,8 +1010,7 @@
             }
         }
 
-        
-            function pickNextPatrolTarget(guard) {
+        function pickNextPatrolTarget(guard) {
             const dirs = [
                 { dr: -1, dc: 0, rot: Math.PI },
                 { dr: 1, dc: 0, rot: 0 },
@@ -1081,6 +1068,7 @@
                 brain: createGuardBrain(rankLevel),
                 alertScore: 0,
                 noiseCue: 0,
+                stunTimer: 0,
                 investigatePos: null,
                 mesh: guardGroup,
                 gridR: safeStart.r,
@@ -1121,9 +1109,51 @@
             if (idx !== -1) guards[idx] = freshGuard;
         }
 
-        // =========================================================================
-        // HIT / SWING ACTION
-        // =========================================================================
+        function segmentIntersectsAnyWall(pStart, pEnd) {
+            tempSegment.set(pStart, pEnd);
+            for (let i = 0; i < walls.length; i++) {
+                if (walls[i].intersectLine(tempSegment, tempClosestPoint) !== null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkLineOfSight(guardPos, playerPos) {
+            const eyeY = 1.1;
+            const gCenter = new THREE.Vector3(guardPos.x, eyeY, guardPos.z);
+            const pCenter = new THREE.Vector3(playerPos.x, eyeY, playerPos.z);
+
+            if (segmentIntersectsAnyWall(gCenter, pCenter)) {
+                return false;
+            }
+
+            const dx = pCenter.x - gCenter.x;
+            const dz = pCenter.z - gCenter.z;
+            const len = Math.hypot(dx, dz);
+            if (len > 0.001) {
+                const perpX = (-dz / len) * 0.25;
+                const perpZ = (dx / len) * 0.25;
+
+                const gLeft = new THREE.Vector3(gCenter.x + perpX, eyeY, gCenter.z + perpZ);
+                const pLeft = new THREE.Vector3(pCenter.x + perpX, eyeY, pCenter.z + perpZ);
+                const gRight = new THREE.Vector3(gCenter.x - perpX, eyeY, gCenter.z - perpZ);
+                const pRight = new THREE.Vector3(pCenter.x - perpX, eyeY, pCenter.z - perpZ);
+
+                const leftClear = !segmentIntersectsAnyWall(gLeft, pLeft);
+                const rightClear = !segmentIntersectsAnyWall(gRight, pRight);
+                if (!leftClear && !rightClear) {
+                    return false;
+                }
+            }
+
+            const dir = new THREE.Vector3().subVectors(pCenter, gCenter).normalize();
+            raycaster.set(gCenter, dir);
+            raycaster.far = gCenter.distanceTo(pCenter);
+            const hits = raycaster.intersectObjects(wallMeshes, false);
+            return hits.length === 0;
+        }
+
         function triggerSwingAction() {
             if (isGameOver || isFrozen || !snailGroup) return;
             const now = Date.now();
@@ -1151,11 +1181,12 @@
                     hitAnyGuard = true;
                 } else if (dist <= SWING_HEAR_RANGE) {
                     g.noiseCue = 1.0;
+                    g.stunTimer = 0.9;
                     const lurePos = { x: playerPos.x, z: playerPos.z };
                     const score = evaluateGuardBrain(g, 0, g.noiseCue);
                     g.alertScore = score;
-                    const threshold = (g.rankLevel >= 3) ? 0.65 : 0.35;
-                    if (score >= threshold) {
+                    const threshold = (g.rankLevel >= 3) ? 0.65 : 0.30;
+                    if (score >= threshold || g.rankLevel <= 2) {
                         g.state = 'INVESTIGATE';
                         g.investigatePos = lurePos;
                         g.lostSightTimer = 0;
@@ -1191,20 +1222,6 @@
                 const pct = Math.round(g.alertScore * 100);
                 return `<div><b>${g.id}</b> [${g.brain.rankLabel}]<br>${g.state} • Alert ${pct}% • ${g.channel}</div>`;
             }).join('<hr style="border:0;border-top:1px solid rgba(0,255,204,0.15);margin:3px 0;">');
-        }
-
-        function checkLineOfSight(guardPos, playerPos) {
-            const direction = new THREE.Vector3();
-            direction.subVectors(playerPos, guardPos).normalize();
-            const startPoint = guardPos.clone().add(direction.clone().multiplyScalar(0.5));
-            raycaster.set(startPoint, direction);
-            const intersects = raycaster.intersectObjects(wallMeshes, true);
-            if (intersects.length > 0) {
-                const distanceToWall = intersects[0].distance;
-                const distanceToPlayer = guardPos.distanceTo(playerPos);
-                if (distanceToWall < distanceToPlayer - 0.5) return false;
-            }
-            return true;
         }
 
         function bindDPad() {
@@ -1253,7 +1270,7 @@
             laserMesh.position.set(guardPos.x, 0.8, guardPos.z);
             scene.add(laserMesh);
             const dir = new THREE.Vector3().subVectors(snailGroup.position, guardPos).normalize();
-            projectiles.push({ mesh: laserMesh, dir: dir, life: 120 });
+            projectiles.push({ mesh: laserMesh, dir: dir, life: 110 });
         }
 
         function takeDamage(amount) {
@@ -1271,7 +1288,6 @@
             for (let i = 0; i < walls.length; i++) {
                 if (tempPlayerBox.intersectsBox(walls[i])) return true;
             }
-            // Also block movement onto snapped-shut trapdoors
             for (let i = 0; i < trapdoors.length; i++) {
                 const td = trapdoors[i];
                 if (!td.closed) continue;
@@ -1307,14 +1323,12 @@
                 }
             }
 
-            // Sliding floor markers (sky blue)
             ctx.fillStyle = '#38bdf8';
             slides.forEach(sl => {
                 const p = gridToWorld(sl.r, sl.c);
                 ctx.fillRect(p.x * mapScale + centerX - 2, p.z * mapScale + centerY - 2, 4, 4);
             });
 
-            // Trapdoor markers (orange open, red closed)
             trapdoors.forEach(td => {
                 const p = gridToWorld(td.r, td.c);
                 ctx.fillStyle = td.closed ? '#ef4444' : '#fb923c';
@@ -1365,6 +1379,10 @@
                 return;
             }
 
+            if (spawnGraceTimer > 0) {
+                spawnGraceTimer = Math.max(0, spawnGraceTimer - delta);
+            }
+
             const now = Date.now();
 
             if (swingAnimTimer > 0) {
@@ -1383,7 +1401,6 @@
                 if (freezeTimer <= 0) { isFrozen = false; document.getElementById('status-msg').style.display = 'none'; }
             }
 
-            // Player movement + directional sliding floors + one-way trapdoors
             currentSlideState = 'NONE';
             if (!isFrozen && snailGroup) {
                 if (moveFlags.left) snailGroup.rotation.y += ROT_SPEED * delta;
@@ -1405,18 +1422,15 @@
                     if (moveDir !== 0) {
                         const dot = forwardX * activeSlide.vec.x + forwardZ * activeSlide.vec.z;
                         if (dot > 0.25) {
-                            // Going with the slide: fast boost!
                             activeSpeed = SLIDE_BOOST_SPEED;
                             stepX = activeSlide.vec.x * 0.85 + forwardX * 0.35;
                             stepZ = activeSlide.vec.z * 0.85 + forwardZ * 0.35;
                             currentSlideState = 'BOOST';
                         } else if (dot < -0.25) {
-                            // Going against the slide: slowed down!
                             activeSpeed = SLIDE_DRAG_SPEED;
                             currentSlideState = 'DRAG';
                         }
                     } else {
-                        // Even without pressing forward on a slide, gently glides along slide direction
                         activeSpeed = SLIDE_BOOST_SPEED * 0.65;
                         stepX = activeSlide.vec.x;
                         stepZ = activeSlide.vec.z;
@@ -1448,7 +1462,6 @@
                     }
                 }
 
-                // Check one-way trapdoor entry/exit logic
                 const currentTd = getTrapdoorAtWorld(snailGroup.position.x, snailGroup.position.z);
                 trapdoors.forEach(td => {
                     if (td.closed) return;
@@ -1456,7 +1469,6 @@
                     if (isHere) {
                         td.wasInside = true;
                     } else if (td.wasInside && !isHere) {
-                        // Player has crossed out of the trapdoor tile
                         const exitVecX = snailGroup.position.x - gridToWorld(td.r, td.c).x;
                         const exitVecZ = snailGroup.position.z - gridToWorld(td.r, td.c).z;
                         const travelDir = getDominantMoveDirName(exitVecX, exitVecZ);
@@ -1470,22 +1482,27 @@
 
             if (bellGroup) {
                 bellGroup.rotation.y += 1.2 * delta;
-                const speedMult = 1 + (currentLevel - MIN_LEVEL) * 0.05;
+                const speedMult = 1 + (currentLevel - MIN_LEVEL) * 0.04;
                 const nextBellX = bellGroup.position.x + bellVelocity.x * speedMult * delta;
                 const nextBellZ = bellGroup.position.z + bellVelocity.z * speedMult * delta;
                 if (checkWallCollision({ x: nextBellX, z: bellGroup.position.z })) bellVelocity.x *= -1; else bellGroup.position.x = nextBellX;
                 if (checkWallCollision({ x: bellGroup.position.x, z: nextBellZ })) bellVelocity.z *= -1; else bellGroup.position.z = nextBellZ;
-                if (!isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.6) {
+                if (spawnGraceTimer <= 0 && !isFrozen && snailGroup && snailGroup.position.distanceTo(bellGroup.position) < 1.5) {
                     isFrozen = true;
-                    freezeTimer = 2500;
+                    freezeTimer = 2200;
                     document.getElementById('status-msg').style.display = 'block';
                 }
             }
 
             guards.forEach(guard => {
+                if (guard.stunTimer > 0) {
+                    guard.stunTimer = Math.max(0, guard.stunTimer - delta);
+                    return;
+                }
+
                 const distanceToPlayer = snailGroup ? guard.mesh.position.distanceTo(snailGroup.position) : Infinity;
                 let canSeePlayer = false;
-                if (snailGroup && distanceToPlayer < GUARD_SIGHT_RANGE) {
+                if (spawnGraceTimer <= 0 && snailGroup && distanceToPlayer < GUARD_SIGHT_RANGE) {
                     canSeePlayer = checkLineOfSight(guard.mesh.position, snailGroup.position);
                 }
 
@@ -1498,7 +1515,7 @@
                     guard.lostSightTimer = 0;
                 } else if (guard.state === 'CHASE') {
                     guard.lostSightTimer += delta;
-                    if (guard.lostSightTimer > 2.0) {
+                    if (guard.lostSightTimer > 1.1) {
                         guard.state = 'PATROL';
                         const curr = worldToGrid(guard.mesh.position.x, guard.mesh.position.z);
                         guard.gridR = curr.r; guard.gridC = curr.c; pickNextPatrolTarget(guard);
@@ -1514,7 +1531,7 @@
                     if (!checkWallCollision({ x: nextX, z: guard.mesh.position.z }, 0.35)) guard.mesh.position.x = nextX;
                     if (!checkWallCollision({ x: guard.mesh.position.x, z: nextZ }, 0.35)) guard.mesh.position.z = nextZ;
                     guard.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    if (now - guard.lastShot > 1400) { shootLaser(guard.mesh.position); guard.lastShot = now; }
+                    if (now - guard.lastShot > 1850) { shootLaser(guard.mesh.position); guard.lastShot = now; }
                 } else if (guard.state === 'INVESTIGATE' && guard.investigatePos) {
                     const dx = guard.investigatePos.x - guard.mesh.position.x;
                     const dz = guard.investigatePos.z - guard.mesh.position.z;
@@ -1550,22 +1567,24 @@
                     }
                 }
 
-                if (snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.1) endGame(false, "GOTCHA!");
+                if (spawnGraceTimer <= 0 && snailGroup && guard.mesh.position.distanceTo(snailGroup.position) < 1.0) {
+                    endGame(false, "GOTCHA!");
+                }
             });
 
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const proj = projectiles[i];
-                proj.mesh.position.addScaledVector(proj.dir, 18.0 * delta);
+                proj.mesh.position.addScaledVector(proj.dir, 17.0 * delta);
                 proj.life -= delta * 60;
                 if (checkWallCollision(proj.mesh.position, 0.2) || proj.life <= 0) { scene.remove(proj.mesh); projectiles.splice(i, 1); continue; }
                 let hitDetected = false;
-                if (snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.7) hitDetected = true;
+                if (spawnGraceTimer <= 0 && snailGroup && proj.mesh.position.distanceTo(snailGroup.position) < 0.65) hitDetected = true;
                 if (!hitDetected) {
                     babies.forEach(baby => {
                         if (baby.following && !baby.returnedHome) { if (proj.mesh.position.distanceTo(baby.mesh.position) < 0.5) hitDetected = true; }
                     });
                 }
-                if (hitDetected) { scene.remove(proj.mesh); projectiles.splice(i, 1); takeDamage(25); return; }
+                if (hitDetected) { scene.remove(proj.mesh); projectiles.splice(i, 1); takeDamage(20); return; }
             }
 
             if (snailGroup) {
@@ -1620,7 +1639,7 @@
             if (currentLevel < MAX_LEVEL) {
                 loadLevel(currentLevel + 1, false);
             } else {
-                loadLevel(MIN_LEVEL, true);
+                window.location.href = START_FILE_URL;
             }
         }
 
@@ -1640,7 +1659,7 @@
                 msg.innerText = isFinalSector
                     ? "You conquered Levels 11–20 with trapdoors, slip slides, and all baby Stellapods!"
                     : `All ${totalBabiesForLevel} baby Stellapods returned! Advancing to Level ${currentLevel + 1}.`;
-                actionBtn.innerText = isFinalSector ? "REPLAY LEVEL 11" : `START LEVEL ${currentLevel + 1}`;
+                actionBtn.innerText = isFinalSector ? "RETURN TO LEVEL 1" : `START LEVEL ${currentLevel + 1}`;
 
                 let stars = 1;
                 if (playerHealth >= 80) stars = 3;
